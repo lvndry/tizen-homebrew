@@ -30,6 +30,24 @@ let failures = 0;
     }
 }
 
+{
+    // The service and the ui are compiled as they are shipped, so a type error in either is a build error.
+    const started = Date.now();
+    try {
+        npm(['run', 'typecheck'], { cwd: ROOT, stdio: 'pipe', encoding: 'utf8' });
+        ui.ok('typecheck', 'no errors', Date.now() - started);
+
+    } catch (e) {
+        failures++;
+        ui.fail('typecheck', 'type errors found');
+        `${e.stdout || ''}${e.stderr || ''}`.split('\n')
+            .filter((line) => line.includes('error TS'))
+            .slice(0, 25)
+            .forEach((line) => process.stdout.write(`      ${line}\n`));
+    }
+}
+
+
 SUITES.forEach((suite) => {
     const started = Date.now();
     let output = '';
