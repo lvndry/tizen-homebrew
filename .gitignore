@@ -8,10 +8,6 @@ release/
 *.p12
 *.log
 
-# npm workspaces: only the root lockfile is authoritative.
-*/package-lock.json
-!/package-lock.json
-
 # macOS finder metadata
 .DS_Store
 
@@ -20,4 +16,3 @@ lwnode/
 
 # The compiled installer, which is a release artifact rather than source.
 installer/dist/
-.package-homeguard/

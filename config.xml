@@ -45,7 +45,9 @@
 
          internet: reach the catalog origin and GitHub.
          application.launch: start the background service from the UI page.
-         can see the launcher come to the front. -->
+         tv.inputdevice: the remote keys the TV screen listens for.
+         unlimitedstorage: read the install logs and the app directories.
+         -->
     <tizen:privilege name="http://tizen.org/privilege/internet"/>
     <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
     <tizen:privilege name="http://tizen.org/privilege/application.launch"/>
