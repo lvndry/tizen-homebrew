@@ -1,8 +1,8 @@
 // The same shape as the service's store: one value, replaced rather than mutated, with everything
 // else a pure function of it.
-const createStore = (initial) => {
+const createStore = <T extends object>(initial: T) => {
     let current = Object.freeze({ ...initial });
-    const listeners = new Set();
+    const listeners = new Set<(state: T) => void>();
 
     const get = () => current;
 

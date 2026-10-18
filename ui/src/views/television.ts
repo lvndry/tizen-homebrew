@@ -1,7 +1,7 @@
 // Anything focusable carries `data-focus`: it is what core/remote.js searches and restores focus by.
 
-import { html } from '../core/view.js';
-import { CREDITS } from './credits.js';
+import { html } from '../core/view.ts';
+import { CREDITS } from './credits.ts';
 
 // Neither overlay scrolls, so each shows a window of rows. These are first-paint guesses; tv.js measures the
 // real count.

@@ -1,12 +1,12 @@
 import './_stage/phone.css';
 
-import { createStore } from './core/store.js';
-import { readPackage } from './core/package.js';
-import { connect, upload } from './core/socket.js';
-import { remembered, remember, forget, DIGITS } from './core/pairing.js';
-import { mount, delegate } from './core/view.js';
-import { theme } from './scene/theme.js';
-import { masthead, pairing, status, tabs, panel, outcome } from './views/screens.js';
+import { createStore } from './core/store.ts';
+import { readPackage } from './core/package.ts';
+import { connect, upload } from './core/socket.ts';
+import { remembered, remember, forget, DIGITS } from './core/pairing.ts';
+import { mount, delegate } from './core/view.ts';
+import { theme } from './scene/theme.ts';
+import { masthead, pairing, status, tabs, panel, outcome } from './views/screens.ts';
 
 const Send = {
     hello: 'hello',
@@ -57,7 +57,7 @@ const store = createStore({
     // `pending` tells a refusal apart from the greeting, which arrive as the same frame; `restoring` decides
     // how the refusal is worded.
     pending: '',
-    restoring: known.length === DIGITS,
+    restoring: known !== null && known.length === DIGITS,
 
     device: null,
     catalog: [],
@@ -68,7 +68,7 @@ const store = createStore({
     tab: 'catalog',
     github: '',
     url: '',
-    usb: [],
+    usb: [] as any[],
     usbPath: '/media',
 
     file: null,
@@ -94,6 +94,7 @@ const channel = theme({
 });
 
 const { send } = connect({
+    url: null,
     // A connection that is not up cannot be pairing, or a phone that cannot reach its TV sits on "offering the
     // code" with no field to type into.
     onStatus: (connection) => store.update(
@@ -113,7 +114,7 @@ const { send } = connect({
                 // Nothing pending means this is the greeting rather than a refusal, and the greeting is the
                 // moment to offer a code this phone already has. A reconnection lands here too.
                 if (!pending) {
-                    if (pin.length !== DIGITS) return null;
+                    if (!pin || pin.length !== DIGITS) return null;
 
                     send(Send.hello, { pin });
                     return { pending: pin, restoring: pin === remembered() };
@@ -126,7 +127,7 @@ const { send } = connect({
                 // Emptied here as well as in the store: a second identical refusal renders identical markup,
                 // so the repaint that would otherwise clear the field never runs.
                 const field = document.getElementById('pin');
-                if (field) field.value = '';
+                if (field) (field as HTMLInputElement).value = '';
 
                 return {
                     paired: false,
@@ -205,7 +206,7 @@ const { send } = connect({
 
 const value = (id) => {
     const element = document.getElementById(id);
-    return element ? element.value.trim() : '';
+    return element ? (element as HTMLInputElement).value.trim() : '';
 };
 
 const beginInstall = (source, reference) => {
@@ -317,7 +318,7 @@ delegate({
         store.update({ relayBusy: true, relayOutput: `${store.get().relayOutput}$ ${command}\n` });
         send(Send.relayExec, { id: String(Date.now()), command });
 
-        document.getElementById('cmd').value = '';
+        (document.getElementById('cmd') as HTMLInputElement).value = '';
     },
 
     theme: () => channel.toggle()
@@ -325,9 +326,11 @@ delegate({
 
 ['dragover', 'drop'].forEach((name) => document.addEventListener(name, (event) => {
     event.preventDefault();
-    if (name === 'drop' && event.dataTransfer.files.length) {
+    if (name === 'drop') {
+        const transfer = (event as DragEvent).dataTransfer;
+        if (!transfer || !transfer.files.length) return;
         store.update({ tab: 'upload' });
-        chooseFile(event.dataTransfer.files[0]);
+        chooseFile(transfer.files[0]);
     }
 }));
 

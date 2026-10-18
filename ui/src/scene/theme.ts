@@ -21,7 +21,8 @@ const FADE = 0.12;
 
 const STORAGE_KEY = 'tizen-homebrew.theme';
 
-const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+const AudioContextClass: typeof AudioContext | undefined = window.AudioContext
+    || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
 
 // The television wants the channel audible on open and the phone does not, so the default is the page's; a
 // person's own choice overrides it. Wrapped because storage can throw.
@@ -42,11 +43,11 @@ const remember = (on) => {
     }
 };
 
-const theme = ({ onState = () => {}, defaultOn = true } = {}) => {
-    let context = null;
-    let source = null;
-    let gain = null;
-    let buffer = null;
+const theme = ({ onState = (state: { playing: boolean; blocked: boolean; failed: boolean }) => {}, defaultOn = true } = {}) => {
+    let context: AudioContext | null = null;
+    let source: AudioBufferSourceNode | null = null;
+    let gain: GainNode | null = null;
+    let buffer: AudioBuffer | null = null;
     let wanted = remembered(defaultOn);
     let failed = false;
 
@@ -78,8 +79,8 @@ const theme = ({ onState = () => {}, defaultOn = true } = {}) => {
         if (ascii(0) !== 'RIFF' || ascii(8) !== 'WAVE') throw new Error('not a RIFF/WAVE file');
 
         let offset = 12;
-        let format = null;
-        let data = null;
+        let format: number | null = null;
+        let data: { at: number; size: number } | null = null;
 
         while (offset + 8 <= view.byteLength) {
             const id = ascii(offset);
@@ -106,7 +107,7 @@ const theme = ({ onState = () => {}, defaultOn = true } = {}) => {
             throw new Error(`expected ${TOTAL_FRAMES} frames, the file carries ${frames}`);
         }
 
-        const target = context.createBuffer(channels, frames, rate);
+        const target = context!.createBuffer(channels, frames, rate);
 
         for (let channel = 0; channel < channels; channel++) {
             const out = target.getChannelData(channel);
@@ -125,7 +126,7 @@ const theme = ({ onState = () => {}, defaultOn = true } = {}) => {
     const play = () => {
         if (source || !buffer || !wanted) return;
 
-        source = context.createBufferSource();
+        source = context!.createBufferSource();
         source.buffer = buffer;
         source.loop = true;
         source.loopStart = LOOP_START;
@@ -134,12 +135,12 @@ const theme = ({ onState = () => {}, defaultOn = true } = {}) => {
         // block would cut the final beat off every time round.
         source.loopEnd = Math.min(LOOP_END, buffer.duration);
 
-        source.connect(gain);
+        source.connect(gain!);
         source.start(0);
 
-        gain.gain.cancelScheduledValues(context.currentTime);
-        gain.gain.setValueAtTime(0, context.currentTime);
-        gain.gain.linearRampToValueAtTime(LEVEL, context.currentTime + FADE);
+        gain!.gain.cancelScheduledValues(context!.currentTime);
+        gain!.gain.setValueAtTime(0, context!.currentTime);
+        gain!.gain.linearRampToValueAtTime(LEVEL, context!.currentTime + FADE);
 
         report();
     };
@@ -148,11 +149,11 @@ const theme = ({ onState = () => {}, defaultOn = true } = {}) => {
         if (!source) return;
 
         const ending = source;
-        const at = context.currentTime;
+        const at = context!.currentTime;
 
-        gain.gain.cancelScheduledValues(at);
-        gain.gain.setValueAtTime(gain.gain.value, at);
-        gain.gain.linearRampToValueAtTime(0, at + FADE);
+        gain!.gain.cancelScheduledValues(at);
+        gain!.gain.setValueAtTime(gain!.gain.value, at);
+        gain!.gain.linearRampToValueAtTime(0, at + FADE);
 
         // Stopped after the ramp, or the fade is cut off by the thing it exists to avoid.
         window.setTimeout(() => ending.stop(0), (FADE + 0.05) * 1000);

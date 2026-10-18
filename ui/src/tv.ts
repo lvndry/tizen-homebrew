@@ -1,11 +1,11 @@
 import './_stage/tv.css';
 
-import { createStore } from './core/store.js';
-import { mount, delegate } from './core/view.js';
-import { remote, KEY } from './core/remote.js';
-import { connect as openSocket } from './core/socket.js';
-import { theme } from './scene/theme.js';
-import { masthead, connect, status, log, overlay, deck, windowOf } from './views/television.js';
+import { createStore } from './core/store.ts';
+import { mount, delegate } from './core/view.ts';
+import { remote, KEY } from './core/remote.ts';
+import { connect as openSocket } from './core/socket.ts';
+import { theme } from './scene/theme.ts';
+import { masthead, connect, status, log, overlay, deck, windowOf } from './views/television.ts';
 
 const PORT = 8091;
 
@@ -50,7 +50,7 @@ const started = Date.now();
 
 const MAX_LINES = 1000;
 
-let clockOffset = null;
+let clockOffset: number | null = null;
 
 const stamp = () => (clockOffset === null
     ? { t: Date.now() - started, estimated: true }
@@ -209,7 +209,7 @@ const actions = {
 
 delegate(actions);
 
-const SCROLLS = {
+const SCROLLS: Record<number, [number, boolean]> = {
     [KEY.up]:    [-1, false],
     [KEY.down]:  [1, false],
     [KEY.left]:  [-1, true],
@@ -219,7 +219,7 @@ const SCROLLS = {
 const keys = remote({
     onBack: () => (store.get().view === 'main' ? leave() : close()),
 
-    onKey: (keyCode) => {
+    onKey: (keyCode: number) => {
         const { view } = store.get();
         // The red key only has a job inside the log: jump to the newest line.
         if (keyCode === RED) {
@@ -246,7 +246,7 @@ mount(store, { masthead, connect, status, log, overlay, deck });
 
 // Measuring the pane changes what there is to measure, so a repeated count ends the pass at the
 // smallest one — a cycle here recursed until the app died.
-let offered = [];
+let offered: number[] = [];
 let settling = false;
 
 const fit = () => {
@@ -380,7 +380,7 @@ const logged = ({ lines, uptime }) => {
 // the drop can reach the process on its way out and be swallowed.
 const RELAUNCH_EVERY = 4;
 
-const changed = (status, attempt) => {
+const changed = (status, attempt = 0) => {
     if (status === 'connected') {
         say(`the service answered on port ${PORT}`, 'ok');
         store.update({ restarting: false });
@@ -433,7 +433,7 @@ if (application) {
 // On the television the service is its own origin on loopback; off it, whatever is serving this page.
 const link = openSocket({
     url: application ? `ws://127.0.0.1:${PORT}` : null,
-    onStatus: (status) => {
+    onStatus: (status: string) => {
         changed(status);
         selfHide();
     },

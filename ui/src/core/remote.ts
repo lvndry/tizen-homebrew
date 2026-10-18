@@ -49,7 +49,7 @@ const score = (from, to, direction) => {
 };
 
 // `onBack` is not optional in practice: a TV app that does not handle Return traps the person inside it.
-const remote = ({ root = document, onBack = () => {}, onKey = () => false } = {}) => {
+const remote = ({ root = document, onBack = () => {}, onKey = (keyCode: number, event: KeyboardEvent): boolean => false } = {}) => {
     let name = null;
 
     const elementFor = (wanted) => (wanted
@@ -85,7 +85,7 @@ const remote = ({ root = document, onBack = () => {}, onKey = () => false } = {}
         const best = all
             .filter((element) => element !== here)
             .map((element) => ({ element, cost: score(from, element.getBoundingClientRect(), direction) }))
-            .filter((entry) => entry.cost !== null)
+            .filter((entry): entry is { element: Element; cost: number } => entry.cost !== null)
             .sort((a, b) => a.cost - b.cost)[0];
 
         // Nothing over there is the edge of the screen, not a failure, so focus stays where it is.

@@ -1,12 +1,12 @@
 // Every value in a template goes through this unless marked raw(), so a package name or a message
 // from the TV cannot become markup.
-const escape = (value) => String(value ?? '')
+const escape = (value: unknown) => String(value ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 
-const raw = (markup) => ({ __markup: String(markup) });
+const raw = (markup: unknown) => ({ __markup: String(markup) });
 
 const html = (strings, ...values) => raw(strings.reduce((out, chunk, index) => {
     if (index === 0) return chunk;
@@ -15,7 +15,7 @@ const html = (strings, ...values) => raw(strings.reduce((out, chunk, index) => {
 
     // `typeof` rather than truthiness: an empty html`` is legitimate markup, and testing it for
     // truth printed [object Object] on every screen that had nothing to report.
-    const markup = (item) => (item && typeof item.__markup === 'string' ? item.__markup : escape(item));
+    const markup = (item: unknown) => (item && typeof item === 'object' && '__markup' in item && typeof item.__markup === 'string' ? item.__markup : escape(item));
 
     const rendered = Array.isArray(value) ? value.map(markup).join('') : markup(value);
 
@@ -24,7 +24,7 @@ const html = (strings, ...values) => raw(strings.reduce((out, chunk, index) => {
 
 // Replacing the document on every keystroke would empty the field being typed into, so the page is
 // split into named sections and only those whose markup changed are written back.
-const mount = (store, sections) => {
+const mount = <S>(store: { get: () => S; subscribe: (listener: (state: S) => void) => unknown }, sections: Record<string, (state: S) => { __markup: string }>) => {
     const previous = new Map();
 
     const paint = (state) => {
@@ -71,7 +71,7 @@ const delegate = (handlers) => {
 
     document.addEventListener('error', (event) => {
         const image = event.target;
-        if (image && image.tagName === 'IMG' && image.parentNode) image.parentNode.removeChild(image);
+        if (image instanceof HTMLImageElement && image.parentNode) image.parentNode.removeChild(image);
     }, true);
 
     document.addEventListener('keydown', (event) => {

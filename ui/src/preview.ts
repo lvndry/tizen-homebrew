@@ -1,9 +1,9 @@
 import './_stage/phone.css';
 import stylesheet from './_stage/tv.css?inline';
 
-import { html } from './core/view.js';
-import { masthead, pairing, status, tabs, panel, outcome } from './views/screens.js';
-import * as tv from './views/television.js';
+import { html } from './core/view.ts';
+import { masthead, pairing, status, tabs, panel, outcome } from './views/screens.ts';
+import * as tv from './views/television.ts';
 
 // Every screen side by side, rendering the same view functions the real pages do. The television
 // is in an iframe at its true 1920x1080 because every size on that page is a fraction of the
@@ -48,7 +48,7 @@ const base = {
     phase: null, phaseDetail: null, done: null, error: null
 };
 
-const scenes = [
+const scenes: Array<[string, any]> = [
     ['Pairing', { ...base, paired: false }],
     ['Pairing · remembered', { ...base, paired: false, restoring: true }],
     ['Rejected', { ...base, paired: false, pinError: 'That PIN did not match.' }],
@@ -150,7 +150,7 @@ const history = [
     [180502, 'dev', 'info', 'sdbd only reads that value at startup, which is why the restart is not optional']
 ].map(([t, facility, level, text]) => ({ t, facility, level, text }));
 
-const televisions = [
+const televisions: Array<[string, any]> = [
     ['Television · the channel', televisionState],
     ['Television · no sdb route', { ...televisionState, ready: false }],
     ['Television · the log', { ...televisionState, lines: history, view: 'logs', from: 20 }],
@@ -179,6 +179,6 @@ const television = ([name, state]) => html`
   </section>`;
 
 
-document.getElementById('preview').innerHTML =
+(document.getElementById('preview') as HTMLElement).innerHTML =
     televisions.map((set) => television(set).__markup).join('') +
     scenes.map((scene) => phone(scene).__markup).join('');

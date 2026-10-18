@@ -6,12 +6,16 @@ const RETRY_CEILING = 3000;
 // also how it waits for a service that has not finished starting. There is no platform event for
 // "the port is open now", but a refused connection is itself an event, so the only interval is the
 // pause between attempts, which grows to a few seconds and stops the moment one is accepted.
-const connect = ({ url, onMessage, onStatus }) => {
+const connect = ({ url = null, onMessage, onStatus }: {
+    url: string | null;
+    onMessage: (type: string, payload: any) => void;
+    onStatus: (status: string, attempt?: number) => void;
+}) => {
     const address = url || (import.meta.env.DEV
         ? `ws://${location.host}/socket`
         : `ws://${location.host}`);
 
-    let socket = null;
+    let socket: WebSocket | null = null;
     let attempts = 0;
 
     const open = () => {

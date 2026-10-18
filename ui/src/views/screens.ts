@@ -1,7 +1,7 @@
 // Prose in the UI face, anything the machine produced in monospace, and `data-focus` on everything reachable.
 
-import { html } from '../core/view.js';
-import { wordmark } from './television.js';
+import { html } from '../core/view.ts';
+import { wordmark } from './television.ts';
 
 const masthead = (state) => html`
   <div class="bar">
@@ -79,7 +79,7 @@ const tile = (app, hero = false) => html`
   </span>`;
 
 // Spans throughout: a USB row is a `<button>`, whose content model is phrasing content only.
-const identity = (app, below = '', hero = false) => html`
+const identity = (app, below: string | { __markup: string } = '', hero = false) => html`
   <span class="ident">
     ${tile(app, hero)}
     <span class="stack stack-tight">
@@ -107,7 +107,7 @@ const tabs = (state) => html`
               data-focus="tab:${id}" data-on-click="tab:${id}">${label}</button>`)}
   </div>`;
 
-const section = (label, body, footer = '') => html`
+const section = (label, body, footer: string | { __markup: string } = '') => html`
   <div class="glass pad stack stack-snug">
     <span class="label">${label}</span>
     ${body}

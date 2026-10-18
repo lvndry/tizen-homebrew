@@ -21,7 +21,7 @@ const MIME = {
 };
 
 const inflateRaw = async (bytes) => {
-    const expanded = new Response(bytes).body
+    const expanded = new Response(bytes).body!
         .pipeThrough(new DecompressionStream('deflate-raw'));
 
     return new Uint8Array(await new Response(expanded).arrayBuffer());
