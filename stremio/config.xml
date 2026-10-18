@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<widget xmlns:tizen="http://tizen.org/ns/widgets" xmlns="http://www.w3.org/ns/widgets" id="https://stremioserver.local" version="1.0.0" viewmodes="maximized">
+    <access origin="*" subdomains="true"></access>
+    <tizen:application id="S6K2WQ8MnP.StremioServer" package="S6K2WQ8MnP" required_version="3.0"/>
+    <author>Tizen Homebrew</author>
+    <content src="index.html"/>
+    <feature name="http://tizen.org/feature/screen.size.all"/>
+    <feature name="http://tizen.org/feature/web.service"/>
+    <icon src="icon.png"/>
+    <name>Stremio Server</name>
+
+    <!-- The same privileges the homebrew service declares: internet so the
+         torrent engine and addons can reach the network, unlimitedstorage so
+         the torrent cache can live under /home/owner. The id suffix must
+         match the tizen:service id below. -->
+    <tizen:privilege name="http://tizen.org/privilege/internet"/>
+    <tizen:privilege name="http://tizen.org/privilege/unlimitedstorage"/>
+
+    <tizen:profile name="tv-samsung"/>
+
+    <!-- The server itself: one bundled file, no dependencies, no UI. It binds
+         0.0.0.0:11470, which is the port a Stremio client on the same network
+         discovers by mDNS, so the television's own Stremio app finds it.
+         on-boot and auto-restart keep it up the way the homebrew service does;
+         on a set that ignores them, homebrew's app can relaunch it. -->
+    <tizen:service id="S6K2WQ8MnP.StremioServerService" auto-restart="true" on-boot="true">
+        <tizen:content src="main.js"/>
+        <tizen:name>StremioServerService</tizen:name>
+        <tizen:description>Serves the Stremio server API and torrent proxy on port 11470.</tizen:description>
+    </tizen:service>
+</widget>
