@@ -20,7 +20,6 @@ const { json, failure, bytes, readBody } = require('./http/respond.js');
 const pin = require('./auth/pin.js');
 const device = require('./tv/device.js');
 const sdb = require('./tv/sdb.js');
-const homeguard = require('./tv/homeguard.js');
 const packages = require('./tv/packages.js');
 const { Relay } = require('./tv/relay.js');
 const config = require('./config.js');
@@ -360,33 +359,6 @@ const start = () => {
             });
         });
 
-        router.on.get('/dev/hglog', (request, response) => {
-            if (!gate(request, response)) return;
-            json(response, { ok: true, log: window.__hglog || [] });
-        });
-
-        router.on.post('/dev/hglog', async (request, response) => {
-            if (!gate(request, response)) return;
-            const body = (await readBody(request, 8 * 1024)).toString('utf8');
-            window.__hglog = window.__hglog || [];
-            window.__hglog.push({ t: Date.now(), body });
-            if (window.__hglog.length > 200) window.__hglog.shift();
-            json(response, { ok: true });
-        });
-
-        router.on.get('/dev/homeguard', (request, response) => {
-            if (!gate(request, response)) return;
-            json(response, homeguard.status());
-        });
-
-        router.on.post('/dev/homeguard', async (request, response) => {
-            if (!gate(request, response)) return;
-            const body = (await readBody(request, 8 * 1024)).toString('utf8');
-            let patch;
-            try { patch = JSON.parse(body || '{}'); } catch { patch = {}; }
-            json(response, homeguard.patch(patch));
-        });
-
         router.on.post('/dev/inspect', (request, response) => {
             if (!gate(request, response)) return;
 
@@ -565,7 +537,6 @@ const start = () => {
             : type);
     });
 
-    homeguard.start();
 
     const server = createServer(router.listener);
 
