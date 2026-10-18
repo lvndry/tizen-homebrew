@@ -20,3 +20,4 @@ lwnode/
 
 # The compiled installer, which is a release artifact rather than source.
 installer/dist/
+.package-homeguard/
