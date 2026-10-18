@@ -14,7 +14,9 @@ const PACKAGE_FILES = [
 
 // package-lock.json carries the version four times, and is edited structurally: a replace of
 // `"version": "0.1.0"` would rewrite half of npm's registry along with it.
-const LOCK_FILES = ['package-lock.json'];
+// bun.lock (this repo's actual lockfile) is not a versioned JSON document, so a
+// repo keeping only it has nothing to check there — the entry reports as absent.
+const LOCK_FILES = ['package-lock.json', 'bun.lock'];
 
 const VERSION = /^\d+\.\d+\.\d+$/;
 
@@ -34,7 +36,14 @@ function eachLockVersion(lock, visit) {
 }
 
 function readLockVersion(relative) {
-    const lock = JSON.parse(readFileSync(join(ROOT, relative), 'utf8'));
+    let raw;
+    try { raw = readFileSync(join(ROOT, relative), 'utf8'); }
+    catch (e) { if (e.code === 'ENOENT') return null; throw e; }
+
+    let lock;
+    try { lock = JSON.parse(raw); }
+    catch { return null; }
+
     const found = [];
 
     eachLockVersion(lock, (holder, field) => found.push(holder[field]));
@@ -92,7 +101,10 @@ function currentState() {
 function apply(version) {
     PACKAGE_FILES.forEach((f) => writePackageVersion(f, version));
     WIDGET_FILES.forEach((f) => writeWidgetVersion(f, version));
-    LOCK_FILES.forEach((f) => writeLockVersion(f, version));
+    LOCK_FILES.forEach((f) => {
+        try { writeLockVersion(f, version); }
+        catch (e) { if (e.code !== 'ENOENT') throw e; }
+    });
 }
 
 function main() {
@@ -123,11 +135,12 @@ function main() {
     }
 
     const state = currentState();
-    const drifted = state.entries.filter((e) => e.version !== state.source);
+    const drifted = state.entries.filter((e) => e.version !== null && e.version !== state.source);
 
     ui.heading('version', state.source);
     state.entries.forEach((e) => {
-        if (e.version === state.source) ui.ok(e.file, e.version);
+        if (e.version === null) ui.note('  ' + e.file + '  — not a versioned lockfile');
+        else if (e.version === state.source) ui.ok(e.file, e.version);
         else ui.fail(e.file, `${e.version} — expected ${state.source}`);
     });
     ui.blank();
