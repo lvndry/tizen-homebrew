@@ -12,16 +12,10 @@
 'use strict';
 
 const { json, failure } = require('../http/respond.js');
-const { host } = require('../obs/units.js');
 const { ErrorCode } = require('../protocol.js');
 
-// Paths the TV's own page polls on a timer. They stay cheap to answer, and a
-// phone or a script may still sweep them, so loopback traffic on them is
-// logged at debug rather than info.
-const POLLED = ['/logs', '/state', '/pin', '/version', '/health'];
-
 const register = (ctx, router) => {
-    const { build, port, startedAt, runtime, device, packages, store, config, log, secret } = ctx;
+    const { build, port, startedAt, runtime, device, packages, store, secret } = ctx;
 
     const { fromLoopback } = ctx;
     const lanAddresses = () => {

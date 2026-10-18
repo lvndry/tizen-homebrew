@@ -8,7 +8,7 @@
 
 'use strict';
 
-const { json, readBody } = require('../http/respond.js');
+const { json, failure, readBody } = require('../http/respond.js');
 const { host } = require('../obs/units.js');
 const { ErrorCode } = require('../protocol.js');
 
