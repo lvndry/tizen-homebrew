@@ -352,11 +352,31 @@ Homebrew re-signs what it installs anyway, including itself. No secrets needed;
 
 ## The look
 
-Both screens are the Wii's Homebrew Channel, rebuilt: an ocean falling from a
-lit surface to true black, god rays, bubbles, Frutiger Aero glass over the
-water. Nothing was eyeballed — every color is sampled from the channel's own
-artwork, `ui/src/scene/bubbles.js` ports `bubbles.c` constant for constant, and
-the theme is its banner music cut to loop sample-exactly. Credits are on the TV.
+Both screens use the TV Dashboard (Bonsoir) language: a warm near-black
+navy, ivory serif display type, hairline rules, and a single marker-yellow
+accent that carries focus and status. Nothing is decorative for its own
+sake; the screens exist to be read from across the room.
+
+---
+
+## Keeping the service alive
+
+The service declares `on-boot` and `auto-restart`, and on a Tizen 6 Samsung
+(CU7105) they behave with a split personality that is worth knowing before
+you rely on it:
+
+- **`POST /restart` self-heals.** A clean `exit(0)` leaves the service down —
+  the platform only relaunches it when the process dies *abnormally*. So a
+  restart exits with a non-zero code and is back in about eight seconds with
+  no help; a shutdown exits cleanly to stay down.
+- **A cold power cycle may leave it down.** `on-boot` did not reliably bring
+  the sideloaded service up after an unplug on the tested firmware. One nudge
+  from the paired machine fixes it: `node restart.js` in the samsung-tv-toolbox
+  (or the Control API `DELETE` + `POST` of `GJBBYNLkgP.TizenHomebrew`).
+- **A self-update leaves it down for the same reason.** Installing a new
+  widget stops the running process before it can restart itself, so updating
+  the service over the air also ends with a `restart.js` nudge. The `/install`
+  response is still fully sent first, so the installer knows it succeeded.
 
 ---
 
