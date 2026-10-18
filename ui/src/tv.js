@@ -1,10 +1,9 @@
-import './app.css';
+import './_stage/tv.css';
 
 import { createStore } from './core/store.js';
 import { mount, delegate } from './core/view.js';
 import { remote, KEY } from './core/remote.js';
 import { connect as openSocket } from './core/socket.js';
-import { sea } from './scene/sea.js';
 import { theme } from './scene/theme.js';
 import { masthead, connect, status, log, overlay, deck, windowOf } from './views/television.js';
 
@@ -74,8 +73,6 @@ const append = (incoming, restamped = false) => store.update((state) => {
 const say = (text, level = 'info') => append([{ ...stamp(), facility: 'ui', level, text }]);
 
 window.onerror = (message, _source, line) => say(`page error: ${message} (line ${line})`, 'err');
-
-const water = sea({ pointer: false });
 
 const channel = theme({
     onState: ({ playing }) => store.update({ themeOn: playing })
@@ -168,7 +165,6 @@ const actions = {
     logs: () => open('logs'),
     credits: () => open('credits'),
     close: () => close(),
-    pop: () => water.popAll(),
     restart: () => restart(),
     exit: () => leave()
 };
@@ -187,9 +183,9 @@ const keys = remote({
 
     onKey: (keyCode) => {
         const { view } = store.get();
-
+        // The red key only has a job inside the log: jump to the newest line.
         if (keyCode === RED) {
-            if (view === 'main') water.popAll(); else toEnd();
+            if (view !== 'main') toEnd();
             return true;
         }
 

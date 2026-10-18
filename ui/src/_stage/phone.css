@@ -1,0 +1,659 @@
+/* Phone page, Bonsoir language.
+
+   Written flat and low: no nesting, no clamp(), no gap without grid-gap in the same rule, rgba()
+   over slash-alpha — build.js reads the output back and refuses anything Tizen would drop. */
+
+@custom-media --wide (min-width: 48rem);
+
+@custom-selector :--control button, [href], input, select, textarea, [tabindex];
+
+:root {
+  --night:      #0E1220;
+  --night-deep: #090C16;
+  --lamp:       #1B2138;
+  --paper:      #EFE7D6;
+  --paper-soft: #D6CEBC;
+  --paper-dim:  #9C9584;
+  --paper-faint: rgba(239, 231, 214, 0.32);
+  --rule:       rgba(239, 231, 214, 0.13);
+  --marker:     #F2DE6B;
+  --rain:       #8FB4E8;
+  --alert:      #FF8A7A;
+
+  --serif: 'Newsreader', 'Iowan Old Style', 'Georgia', serif;
+  --sans:  'Inter', 'SamsungOne', 'Helvetica Neue', system-ui, sans-serif;
+  --mono:  ui-monospace, 'SF Mono', 'JetBrains Mono', 'Cascadia Mono',
+          'Roboto Mono', Menlo, Consolas, monospace;
+
+  --ease:    cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-io: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* The page is quiet, so the accents keep their own weights: a warm amber for the working state,
+     a pale blue for things in flight, a coral only for the broken. */
+  --ok:    #A9BC9C;
+  --warn:  #D8B463;
+  --fault: var(--alert);
+
+  /* The lamp the glass is cut from, and the one thing darker than the page itself. */
+  --pane:   rgba(27, 33, 56, 0.55);
+  --inset:  rgba(0, 0, 0, 0.34);
+  --inset-edge: rgba(239, 231, 214, 0.16);
+
+  --radius:       0.5rem;
+  --radius-pane:  0.625rem;
+  --radius-pill:  999px;
+
+  /* Phone first. Nothing read at arm's length is sized in rem it cannot be. */
+  --micro: 0.6875rem;
+  --label: 0.75rem;
+  --body:  0.9375rem;
+  --value: 1.25rem;
+  --hero:  2.25rem;
+  --code-field-size: 1.625rem;
+}
+
+@media (--wide) {
+  :root {
+    --micro: 0.75rem;
+    --label: 0.8125rem;
+    --body:  1.0625rem;
+    --value: 1.5rem;
+    --hero:  3.5rem;
+    --code-field-size: 1.875rem;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  background: var(--night-deep);
+  color-scheme: dark;
+  font-kerning: normal;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--night-deep);
+  /* The lamp: two warm lights, one off the top-left corner, one low at the bottom — the page reads
+     like a room at night rather than a void. */
+  background-image:
+    radial-gradient(80% 55% at 18% -12%, rgba(39, 47, 82, 0.55), rgba(39, 47, 82, 0) 62%),
+    radial-gradient(70% 45% at 85% 115%, rgba(27, 33, 56, 0.6), rgba(27, 33, 56, 0) 60%);
+  background-attachment: fixed;
+  color: var(--paper-soft);
+  font-family: var(--sans);
+  font-size: var(--body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+p { margin: 0; }
+
+/* The aquarium is gone: the canvas and its background are left in the markup for the service, but
+   neither is painted. */
+.sea, .bubbles { display: none; }
+
+.stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: min-content;
+  grid-gap: 1rem;
+}
+
+.stack-tight { display: grid; grid-gap: 0.375rem; }
+.stack-snug  { display: grid; grid-gap: 0.75rem; }
+.stack-wide  { display: grid; grid-gap: 1.25rem; }
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  grid-gap: 0.875rem;
+}
+
+.split-baseline { align-items: baseline; }
+
+.inline {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-columns: minmax(0, auto);
+  justify-content: start;
+  align-items: baseline;
+  grid-gap: 0.5rem;
+}
+
+.controls {
+  display: grid;
+  grid-auto-flow: column;
+  justify-content: start;
+  align-items: center;
+  grid-gap: 0.5rem;
+}
+
+.entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-gap: 0.5rem;
+}
+
+.page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: min-content;
+  grid-gap: 1.5rem;
+  width: 100%;
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 1.75rem 1.25rem 3.5rem;
+}
+
+.list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: min-content;
+}
+
+.truncate {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.label {
+  font-size: var(--micro);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--paper-dim);
+}
+
+.value {
+  font-family: var(--serif);
+  font-size: var(--value);
+  line-height: 1.15;
+  font-weight: 500;
+  color: var(--paper);
+}
+
+.name  { color: var(--paper); font-weight: 600; }
+.small { font-size: var(--label); color: var(--paper-dim); line-height: 1.5; }
+.micro { font-size: var(--micro); color: var(--paper-faint); }
+.ink   { color: var(--paper); }
+.wrap  { word-break: break-word; }
+
+.tone-debug { color: var(--paper-faint); }
+.tone-info  { color: var(--paper-dim); }
+.tone-ok    { color: var(--ok); }
+.tone-warn  { color: var(--warn); }
+.tone-err   { color: var(--fault); }
+
+/* The masthead is the wordmark in the Bonsoir letterhead voice: a wide-tracked small caps and a serif
+   name, the channel in the marker. */
+.mark {
+  display: grid;
+  grid-auto-flow: column;
+  justify-content: start;
+  align-items: baseline;
+  grid-gap: 0.55em;
+  font-size: var(--micro);
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--paper-dim);
+
+  & b {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 1.85em;
+    letter-spacing: 0.01em;
+    text-transform: none;
+    line-height: 1;
+    color: var(--paper);
+  }
+
+  & b i { font-style: italic; color: var(--marker); }
+}
+
+.glass {
+  position: relative;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-pane);
+  background-color: var(--pane);
+
+  & > * { position: relative; }
+}
+
+.pad { padding: 1.25rem; }
+
+@media (--wide) {
+  .pad { padding: 1.5rem; }
+}
+
+.row {
+  padding: 0.875rem 0;
+
+  & + & { border-top: 1px solid var(--rule); }
+}
+
+.ident {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  grid-gap: 0.875rem;
+  min-width: 0;
+}
+
+.tile {
+  position: relative;
+  display: grid;
+  align-items: center;
+  justify-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background-color: var(--inset);
+}
+
+.tile-hero {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: var(--radius-pane);
+}
+
+.tile-mark {
+  font-family: var(--serif);
+  font-size: 1.25rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--paper-faint);
+}
+
+.tile-art {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* A section with nothing in it is not a row on either page. */
+#status:empty { display: none; }
+
+/* State bands: no fill, no lift — a hairline on the left carries the tone, the words do the rest. */
+.state {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-gap: 0.375rem;
+  padding: 0.9375rem 1.125rem;
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--rule);
+  border-radius: 2px;
+  background-color: var(--inset);
+}
+
+.state-head {
+  font-size: var(--micro);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--paper-dim);
+}
+
+.state-ok { border-left-color: var(--ok); }
+.state-ok .state-head { color: var(--ok); }
+
+.state-warn { border-left-color: var(--warn); }
+.state-warn .state-head { color: var(--warn); }
+
+.state-fault { border-left-color: var(--fault); }
+.state-fault .state-head { color: var(--fault); }
+
+.bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  grid-gap: 1rem;
+  padding-bottom: 0.875rem;
+  border-bottom: 1px solid var(--rule);
+
+  & .micro { color: var(--paper-faint); }
+}
+
+/* Buttons are thin outline pills in ivory. The marker appears only where a button says something is
+   on or is the way forward. */
+.btn {
+  position: relative;
+  display: inline-grid;
+  grid-auto-flow: column;
+  align-items: center;
+  justify-content: center;
+  grid-gap: 0.5rem;
+  min-height: 44px;
+  padding: 0 1.25rem;
+  border: 1px solid rgba(239, 231, 214, 0.28);
+  border-radius: var(--radius-pill);
+  color: var(--paper-soft);
+  font: inherit;
+  font-size: var(--label);
+  font-weight: 500;
+  cursor: pointer;
+  background: transparent;
+  transition: border-color 140ms var(--ease), color 140ms var(--ease), background-color 140ms var(--ease);
+
+  &:disabled { opacity: 0.35; cursor: default; }
+}
+
+.btn:hover:not(:disabled),
+.btn:focus:not(:disabled),
+.btn.is-focus:not(:disabled) {
+  outline: none;
+  border-color: var(--marker);
+  color: var(--paper);
+  background-color: rgba(242, 222, 107, 0.05);
+}
+
+.btn:active:not(:disabled) { background-color: rgba(242, 222, 107, 0.1); }
+
+.btn-ghost {
+  min-height: 38px;
+  padding: 0 1rem;
+  border-color: rgba(239, 231, 214, 0.16);
+  color: var(--paper-dim);
+}
+
+.btn-quiet {
+  min-height: 32px;
+  padding: 0 0.75rem;
+  border-color: transparent;
+  border-radius: var(--radius-pill);
+  color: var(--paper-faint);
+  font-size: var(--micro);
+}
+
+.btn-quiet:hover:not(:disabled),
+.btn-quiet:focus:not(:disabled),
+.btn-quiet.is-focus:not(:disabled) { color: var(--paper-soft); }
+
+.btn-signal {
+  border-color: rgba(242, 222, 107, 0.55);
+  color: var(--marker);
+  background-color: rgba(242, 222, 107, 0.07);
+}
+
+.btn-signal:hover:not(:disabled),
+.btn-signal:focus:not(:disabled),
+.btn-signal.is-focus:not(:disabled) {
+  color: var(--marker);
+  border-color: var(--marker);
+  background-color: rgba(242, 222, 107, 0.12);
+}
+
+.btn-wide  { width: 100%; }
+.btn-start { justify-self: start; }
+
+.list .row .btn {
+  min-height: 36px;
+  padding: 0 1rem;
+}
+
+.field {
+  width: 100%;
+  min-height: 48px;
+  padding: 0.6875rem 0.9375rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background-color: var(--inset);
+  color: var(--paper);
+  font-family: var(--mono);
+  /* 16px is the threshold below which iOS zooms the page on focus. */
+  font-size: 1rem;
+  transition: border-color 140ms var(--ease);
+
+  &::placeholder { color: var(--paper-faint); }
+}
+
+.field:focus,
+.field.is-focus {
+  outline: none;
+  border-color: rgba(242, 222, 107, 0.7);
+}
+
+:--control:focus {
+  outline: 1px solid var(--marker);
+  outline-offset: 2px;
+}
+
+.btn:focus, .field:focus, .btn.is-focus, .field.is-focus { outline: none; }
+
+.toggle {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  grid-gap: 0.75rem;
+  min-height: 48px;
+  cursor: pointer;
+
+  & input {
+    width: 1.15rem;
+    height: 1.15rem;
+    accent-color: var(--marker);
+  }
+}
+
+.row-button {
+  width: 100%;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 140ms var(--ease);
+
+  & + & { border-top: 1px solid var(--rule); }
+}
+
+.row-button:hover,
+.row-button:focus,
+.row-button.is-focus {
+  outline: none;
+  background-color: rgba(239, 231, 214, 0.045);
+}
+
+.drop {
+  display: grid;
+  justify-items: center;
+  grid-gap: 0.25rem;
+  padding: 1.75rem 1rem;
+  border: 1px dashed rgba(239, 231, 214, 0.25);
+  border-radius: var(--radius);
+  background-color: rgba(0, 0, 0, 0.22);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 140ms var(--ease);
+}
+
+.drop:hover { border-color: rgba(239, 231, 214, 0.45); }
+
+.drop-filled {
+  justify-items: stretch;
+  text-align: left;
+}
+
+.tabs {
+  display: flex;
+  overflow-x: auto;
+
+  margin: -0.5rem;
+  padding: 0.5rem;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar { display: none; }
+}
+
+.tab {
+  flex: 0 0 auto;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 0.875rem;
+  border: 1px solid rgba(239, 231, 214, 0.18);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--paper-dim);
+  font-family: inherit;
+  font-size: var(--label);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 140ms var(--ease), color 140ms var(--ease);
+
+  & + & { margin-left: 0.5rem; }
+}
+
+.tab:hover,
+.tab:focus,
+.tab.is-focus {
+  outline: none;
+  color: var(--paper);
+  border-color: rgba(239, 231, 214, 0.45);
+}
+
+.tab[aria-selected="true"] {
+  color: var(--paper);
+  border-color: rgba(239, 231, 214, 0.35);
+  background-color: rgba(27, 33, 56, 0.85);
+  box-shadow: inset 0 -2px 0 0 var(--marker);
+}
+
+.code {
+  display: grid;
+  grid-auto-flow: column;
+  justify-content: start;
+  grid-gap: 0.32em;
+  font-size: var(--code-size, var(--hero));
+}
+
+.digit {
+  display: grid;
+  place-items: center;
+  min-width: 1em;
+  padding: 0.18em 0.16em 0.22em;
+  border: 1px solid var(--inset-edge);
+  border-radius: 2px;
+  background-color: var(--inset);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1em;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--marker);
+
+  &:nth-child(3) { margin-right: 0.34em; }
+}
+
+.digit-blank { color: var(--paper-faint); }
+
+/* The pairing field: the serif is the voice, the marker is the digits, and the cell hairlines are the
+   underlines of the code as printed on the TV. */
+.code-field {
+  --cell: 2ch;
+  --code-pad: 0.75rem;
+
+  justify-self: center;
+  width: calc(6 * var(--cell) + 2 * var(--code-pad));
+  max-width: 100%;
+  padding: 0.85rem var(--code-pad);
+  border-color: rgba(239, 231, 214, 0.25);
+  color: var(--marker);
+  font-family: var(--serif);
+  font-weight: 500;
+  letter-spacing: 1ch;
+  text-indent: 0.5ch;
+  text-align: left;
+
+  background-image: repeating-linear-gradient(90deg,
+      rgba(239, 231, 214, 0) 0, rgba(239, 231, 214, 0) calc(var(--cell) - 1px),
+      var(--rule) calc(var(--cell) - 1px), var(--rule) var(--cell));
+  background-origin: content-box;
+  background-clip: content-box;
+
+  &::placeholder {
+    color: var(--paper-faint);
+    font-weight: 400;
+  }
+}
+
+.readout {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--url-size, var(--value));
+  line-height: 1.2;
+  font-weight: 600;
+  color: var(--paper);
+  word-break: break-all;
+}
+
+.meter {
+  height: 3px;
+  border: 0;
+  border-radius: 999px;
+  background-color: rgba(239, 231, 214, 0.14);
+
+  & > i {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background-color: var(--marker);
+    transition: width 220ms var(--ease);
+  }
+}
+
+.log {
+  font-family: var(--mono);
+  font-size: var(--label);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--paper-dim);
+}
+
+.shell {
+  margin: 0;
+  padding: 0.875rem;
+  max-height: 40vh;
+  overflow: auto;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background-color: var(--inset);
+}
+
+/* Kept so the file stands on its own; the television page carries its own overrides in app.css. */
+.tv {
+  height: 100vh;
+  overflow: hidden;
+  font-size: var(--body);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
+  }
+}

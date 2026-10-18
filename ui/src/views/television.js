@@ -11,7 +11,7 @@ const ROWS = { logs: 14, credits: 10 };
 // readable one.
 const SPARE = 3;
 
-const BAND = 12;
+const BAND = 9;
 
 const wordmark = (extra = '') => html`
   <span class="mark ${extra}">
@@ -192,7 +192,6 @@ const deck = (state) => {
           ${button('restart', state.restarting ? 'restarting…' : 'restart service')}
           ${button('logs', 'show logs')}
           ${button('theme', state.themeOn ? 'theme · on' : 'theme · off')}
-          ${button('pop', 'pop bubbles')}
           ${button('credits', 'credits')}
           ${button('exit', 'exit')}
         </div>
@@ -200,7 +199,7 @@ const deck = (state) => {
         ${legend([
             ['◀ ▶', 'choose'],
             ['OK', 'select'],
-            ['RED', 'pop bubbles'],
+            ['RED', 'newest'],
             ['↩', 'exit']
         ])}
       </div>`;

@@ -121,7 +121,7 @@ const remote = ({ root = document, onBack = () => {}, onKey = () => false } = {}
         }
     };
 
-    // `.is-focus` and the browser's own focus are two cursors for one idea, and app.css lights a
+    // `.is-focus` and the browser's own focus are two cursors for one idea, and tv.css lights a
     // control for either — so rather than forbid a click or a Tab, whatever ends up focused becomes
     // the cursor and there is only ever one lit control.
     const onFocusIn = (event) => {

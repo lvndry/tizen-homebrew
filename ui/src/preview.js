@@ -1,8 +1,7 @@
-import './app.css';
-import stylesheet from './app.css?inline';
+import './_stage/phone.css';
+import stylesheet from './_stage/tv.css?inline';
 
 import { html } from './core/view.js';
-import { sea } from './scene/sea.js';
 import { masthead, pairing, status, tabs, panel, outcome } from './views/screens.js';
 import * as tv from './views/television.js';
 
@@ -158,9 +157,8 @@ const televisions = [
     ['Television · the credits', { ...televisionState, view: 'credits', from: 0 }]
 ];
 
-// The same sections tv.html carries, because app.css sizes them by name.
+// The same sections tv.html carries, because tv.css sizes them by name.
 const screenMarkup = (state) => html`
-  <div class="sea"></div>
   <section id="overlay">${tv.overlay(state)}</section>
   <main class="screen">
     <header id="masthead">${tv.masthead(state)}</header>
@@ -180,7 +178,6 @@ const television = ([name, state]) => html`
     </div>
   </section>`;
 
-sea();
 
 document.getElementById('preview').innerHTML =
     televisions.map((set) => television(set).__markup).join('') +

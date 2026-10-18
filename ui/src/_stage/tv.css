@@ -1,0 +1,502 @@
+/* Bonsoir restyle of the television page: near-black warm navy, warm ivory, hairline rules,
+   serif display, sans UI. Everything is scoped under `.tv` (the body class of tv.html) so this
+   stylesheet could sit beside app.css without touching the phone page.
+
+   Chromium 63 and 76 fail at CSS silently, so this stays on ground the build gate accepts:
+   no clamp(), no inset:, no min()/max(), no color-mix(); `gap` only inside `display: grid`
+   rules, where PostCSS lowers it to `grid-gap`. */
+
+:root {
+  --night:      #0E1220;
+  --night-deep: #090C16;
+  --lamp:       #1B2138;
+  --paper:      #EFE7D6;
+  --paper-soft: #D6CEBC;
+  --paper-dim:  #9C9584;
+  --paper-faint: rgba(239, 231, 214, 0.46);
+  --rule:       rgba(239, 231, 214, 0.13);
+  --marker:     #F2DE6B;
+  --rain:       #8FB4E8;
+  --alert:      #FF8A7A;
+
+  --serif: 'Newsreader', 'Iowan Old Style', 'Georgia', serif;
+  --sans:  'Inter', 'SamsungOne', 'Helvetica Neue', system-ui, sans-serif;
+  --mono:  'SF Mono', 'Menlo', 'Consolas', monospace;
+
+  --ease:    cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-io: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  background: var(--night-deep);
+  color-scheme: dark;
+  -webkit-text-size-adjust: 100%;
+}
+
+p { margin: 0; }
+
+body.tv {
+  margin: 0;
+  background: linear-gradient(180deg, var(--night) 0%, var(--night-deep) 100%);
+  color: var(--paper);
+  font-family: var(--sans);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Sizing. A television may crop several percent off every edge, so nothing lives closer to it
+   than --margin-x / --margin-y. */
+.tv {
+  --micro:  1.05vw;
+  --label:  1.3vw;
+  --body:   1.6vw;
+  --value:  2.2vw;
+  --hero:   4.6vw;
+
+  --code-size: 3.4vw;
+  --url-size:  1.9vw;
+
+  --lane:     3vh;
+  --margin-y: 5.5vh;
+  --margin-x: 6vw;
+  --stamp:    1.4vw;
+
+  height: 100vh;
+  overflow: hidden;
+  font-size: var(--body);
+}
+
+/* Type voices. The masthead and the status speak in serif — that is what says "this is a
+   considered page, not a control panel"; everything operational stays in sans or mono. */
+.tv .mark {
+  display: block;
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 2.3vw;
+  letter-spacing: 0.02em;
+  color: var(--paper);
+  white-space: nowrap;
+}
+
+.tv .mark b {
+  font-weight: 600;
+}
+
+.tv .mark i { font-style: italic; color: var(--marker); }
+
+.tv .mark-hero {
+  font-size: 2.9vw;
+}
+
+.tv .label {
+  font-family: var(--sans);
+  font-size: var(--micro);
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+}
+
+.tv .value {
+  font-family: var(--serif);
+  font-size: var(--value);
+  line-height: 1.15;
+  color: var(--paper);
+}
+
+.tv .name  { font-weight: 600; color: var(--paper); }
+.tv .small { font-size: var(--label); line-height: 1.45; color: var(--paper-dim); }
+.tv .micro { font-size: var(--micro); color: var(--paper-faint); }
+.tv .ink   { color: var(--paper); }
+.tv .wrap  { word-break: break-word; }
+
+.tv .truncate {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Machine output, quoted as-is: monospace. */
+.tv .mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.tv .tone-info { color: var(--paper-soft); }
+.tv .tone-ok   { color: var(--marker); }
+.tv .tone-warn { color: var(--rain); }
+.tv .tone-err  { color: var(--alert); }
+
+/* Layout. The screen is a column; lanes are margins so a section that is not drawn takes its
+   space with it. */
+.tv .screen {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--margin-y) var(--margin-x);
+}
+
+.tv .screen > * + * { margin-top: var(--lane); }
+
+.tv #log {
+  flex: 1;
+  min-height: 0;
+}
+
+/* The one shared row of the page: wordmark or title on the left, fine print on the right, a
+   hairline rule underneath. */
+.tv .bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  padding-bottom: 1.6vh;
+  border-bottom: 1px solid var(--rule);
+}
+
+.tv .bar .micro {
+  color: var(--paper-faint);
+}
+
+/* The pairing pane: what to open on the phone, and the code to type. Two columns, labels in
+   small caps, the URL in monospace, the code in large serif. No box — the rules are the frame. */
+.tv .marquee {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: var(--lane) 5vw;
+  padding: 2vh 0;
+}
+
+/* Set outright per class: the plugin pairing a gap with its `display: grid` cannot see through a selector list. */
+.tv .stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: min-content;
+  gap: 1rem;
+}
+
+.tv .stack-tight {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: min-content;
+  gap: 0.6vh;
+}
+
+.tv .stack-snug {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: min-content;
+  gap: 1.2vh;
+}
+
+.tv .stack-wide {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: min-content;
+  gap: 1.25rem;
+}
+
+.tv .marquee > .stack {
+  grid-template-rows: auto auto;
+  align-items: start;
+}
+
+.tv .readout {
+  font-family: var(--mono);
+  font-size: var(--url-size);
+  line-height: 1.2;
+  color: var(--paper);
+  word-break: break-all;
+}
+
+/* The code is the thing to type: large, serif, marker — the only large yellow on the page. */
+.tv .code {
+  display: grid;
+  grid-auto-flow: column;
+  gap: 0.28em;
+  font-size: var(--code-size, var(--hero));
+}
+
+.tv .digit {
+  display: grid;
+  text-align: center;
+  min-width: 1em;
+  padding: 0.1em 0.06em 0.18em;
+  border: 1px solid var(--rule);
+  border-radius: 0.15em;
+  font-family: var(--serif);
+  font-weight: 500;
+  line-height: 1;
+  color: var(--marker);
+
+  &:nth-child(3) { margin-right: 0.34em; }
+}
+
+.tv .digit-blank {
+  color: var(--paper-faint);
+  border-color: rgba(239, 231, 214, 0.07);
+}
+
+/* A problem said quietly: one hairline on the left, a serif italic line, no filled box. */
+.tv .state {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: min-content;
+  gap: 0.8vh;
+  padding: 1.2vh 0 1.2vh 1.4vw;
+  border-left: 1px solid var(--paper-faint);
+}
+
+.tv .state-head {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: var(--value);
+  line-height: 1.1;
+  color: var(--paper);
+}
+
+.tv .state-warn  { border-left-color: var(--rain); }
+.tv .state-warn .state-head { color: var(--rain); }
+.tv .state-fault { border-left-color: var(--alert); }
+.tv .state-fault .state-head { color: var(--alert); }
+.tv .state-ok    { border-left-color: var(--marker); }
+.tv .state-ok .state-head { color: var(--marker); }
+
+/* The feed. Three columns share the tracks of one grid, so the stamps never wiggle; the newest
+   line hangs off the bottom. */
+.tv .feed {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-content: end;
+  gap: 0.6vh var(--stamp);
+  height: 100%;
+  overflow: hidden;
+}
+
+.tv .log {
+  font-family: var(--mono);
+  font-size: var(--label);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.tv .stamp { color: var(--paper-faint); }
+.tv .facility { color: var(--paper-dim); }
+
+/* The key legend: the fine print along the bottom. */
+.tv .legend {
+  display: grid;
+  grid-auto-flow: column;
+  justify-content: start;
+  align-items: center;
+  gap: 2.2vw;
+  padding-top: 1.4vh;
+  font-family: var(--sans);
+  font-size: var(--micro);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--paper-faint);
+}
+
+.tv .legend-key {
+  display: grid;
+  grid-auto-flow: column;
+  align-items: center;
+  gap: 0.7vw;
+}
+
+.tv .key {
+  display: grid;
+  text-align: center;
+  min-width: 2.4vw;
+  padding: 0.35vh 0.5vw;
+  border: 1px solid var(--rule);
+  border-radius: 0.3vw;
+  font-family: var(--mono);
+  font-size: var(--micro);
+  color: var(--paper-soft);
+}
+
+/* Buttons: thin outline pills. The focused one gets a marker outline and a step forward —
+   the remote is the only hand, so the cursor must read from three meters. */
+.tv .btn {
+  position: relative;
+  display: inline-grid;
+  grid-auto-flow: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.6vw;
+  min-height: 5.2vh;
+  padding: 0 1.6vw;
+  border: 1px solid rgba(239, 231, 214, 0.3);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--paper-soft);
+  font: inherit;
+  font-family: var(--sans);
+  font-size: var(--label);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+
+  transition: border-color 140ms var(--ease), color 140ms var(--ease),
+              background-color 140ms var(--ease), transform 140ms var(--ease);
+}
+
+.tv .btn:hover:not(:disabled),
+.tv .btn:focus:not(:disabled),
+.tv .btn.is-focus:not(:disabled) {
+  outline: 2px solid var(--marker);
+  outline-offset: 3px;
+  color: var(--paper);
+  border-color: var(--marker);
+  transform: translateX(0.3vw);
+}
+
+.tv .btn:active:not(:disabled) { transform: translateX(0.3vw) translateY(1px); }
+
+.tv .btn:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.tv .btn-quiet {
+  min-height: 3.6vh;
+  padding: 0 1vw;
+  border-color: rgba(239, 231, 214, 0.18);
+  color: var(--paper-dim);
+  font-size: var(--micro);
+}
+
+.tv .btn-signal {
+  border-color: var(--marker);
+  color: var(--marker);
+}
+
+.tv .btn-signal:hover:not(:disabled),
+.tv .btn-signal:focus:not(:disabled),
+.tv .btn-signal.is-focus:not(:disabled) {
+  color: var(--marker);
+  border-color: var(--marker);
+  background-color: rgba(242, 222, 107, 0.08);
+}
+
+.tv .btn-wide { width: 100%; }
+
+/* The deck sits over the bottom of the screen, like the app tray on the dashboard: actions on
+   the left, the key legend on the right. */
+.tv .deck {
+  display: grid;
+  grid-auto-flow: column;
+  justify-content: start;
+  align-items: center;
+  gap: 1.2vw;
+}
+
+/* The footer holds the deck and, under a hairline, the legend. */
+.tv #deck {
+  display: grid;
+  grid-template-rows: auto auto;
+}
+
+/* The header, rewritten on every keypress, does not cross-fade. */
+.tv .bar-overlay {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 2vw;
+  padding-top: 0;
+
+  .btn {
+    min-height: 3.6vh;
+    font-size: var(--micro);
+    transition: none;
+  }
+}
+
+
+/* Over the screen. The overlay is a fixed curtain; while it is open the screen underneath is
+   display:none — core/remote.js walks what is laid out, so a deck left underneath would still
+   take focus invisibly. */
+#overlay:not(:empty) + .screen { display: none; }
+
+.tv .curtain {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  padding: var(--margin-y) var(--margin-x);
+}
+
+.tv .curtain-dim {
+  justify-items: center;
+  align-items: center;
+  background-color: rgba(9, 12, 22, 0.72);
+}
+
+.tv .console, .tv .dialog {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: var(--lane);
+  width: 100%;
+  height: 100%;
+  padding: 2.4vh 2.2vw;
+  border: 1px solid var(--rule);
+  background-color: rgba(9, 12, 22, 0.9);
+}
+
+.tv .dialog {
+  width: 74vw;
+  height: 88%;
+}
+
+/* The credits roll. Every row is one line high, which is what lets views/television.js count
+   rows instead of measuring them. */
+.tv .roll {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 1vh;
+  height: 100%;
+  overflow: hidden;
+}
+
+.tv .credit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2vw;
+  align-items: baseline;
+}
+
+.tv .credit-rule {
+  grid-template-columns: minmax(0, 1fr);
+  padding-top: 1vh;
+  border-top: 1px solid var(--rule);
+}
+
+.tv .credit-note {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* A television is not a mouse, but a developer is. */
+.tv :focus-visible {
+  outline: 2px solid var(--marker);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tv, .tv *, .tv *::before, .tv *::after {
+    transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
+  }
+}

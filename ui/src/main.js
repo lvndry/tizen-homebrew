@@ -1,11 +1,10 @@
-import './app.css';
+import './_stage/phone.css';
 
 import { createStore } from './core/store.js';
 import { readPackage } from './core/package.js';
 import { connect, upload } from './core/socket.js';
 import { remembered, remember, forget, DIGITS } from './core/pairing.js';
 import { mount, delegate } from './core/view.js';
-import { sea } from './scene/sea.js';
 import { theme } from './scene/theme.js';
 import { masthead, pairing, status, tabs, panel, outcome } from './views/screens.js';
 
@@ -89,9 +88,6 @@ const store = createStore({
 
     themeOn: false
 });
-
-sea();
-
 const channel = theme({
     defaultOn: false,
     onState: ({ playing }) => store.update({ themeOn: playing })
