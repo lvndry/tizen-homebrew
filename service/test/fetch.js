@@ -2,7 +2,7 @@
 
 const http = require('http');
 
-const fetch = require('../src/remote/fetch.js');
+const fetch = require('../src/remote/fetch.ts');
 
 const results = [];
 const check = (name, ok, detail) => {

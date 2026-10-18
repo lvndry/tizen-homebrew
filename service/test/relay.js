@@ -1,6 +1,6 @@
 'use strict';
 
-const { Relay, isSelfDestructive, MAX_CONCURRENT } = require('../src/tv/relay.js');
+const { Relay, isSelfDestructive, MAX_CONCURRENT } = require('../src/tv/relay.ts');
 
 const results = [];
 function check(name, ok, detail) {

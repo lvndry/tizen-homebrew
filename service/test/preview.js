@@ -4,9 +4,9 @@ const { mkdtempSync, readFileSync, writeFileSync } = require('fs');
 const { tmpdir } = require('os');
 const { join } = require('path');
 
-const preview = require('../src/install/preview.js');
-const { usable, logoFor } = require('../src/install/catalog.js');
-const { pickAsset } = require('../src/install/sources.js');
+const preview = require('../src/install/preview.ts');
+const { usable, logoFor } = require('../src/install/catalog.ts');
+const { pickAsset } = require('../src/install/sources.ts');
 const fixture = require('./fixture.js');
 
 const results = [];

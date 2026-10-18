@@ -69,7 +69,7 @@ function next(conn, type, timeout) {
     });
 }
 
-require(process.env.HOMEBREW_ENTRY === 'dist' ? '../dist/index.js' : '../src/main.js');
+require(process.env.HOMEBREW_ENTRY === 'dist' ? '../dist/index.js' : '../src/main.ts');
 
 setTimeout(() => {
     let pin;
@@ -166,7 +166,7 @@ setTimeout(() => {
         .then((msg) => {
             check('unreadable directory is reported', msg.payload.code === 'notFound', JSON.stringify(msg.payload));
 
-            const config = require('../src/config.js');
+            const config = require('../src/config.ts');
             config.update({ author: 'a', distributor: 'b' });
             send(conn, 'install', { source: 'file', ref: '/nope.wgt' });
             return next(conn, 'error').then(() => config.hasCertificates());
@@ -174,7 +174,7 @@ setTimeout(() => {
         .then((stillHasCerts) => {
             check('a failed install does NOT wipe stored certificates', stillHasCerts === true,
                 'certificates were cleared, which is the reference implementation bug');
-            require('../src/config.js').clear();
+            require('../src/config.ts').clear();
 
             send(conn, 'watch', {});
             return next(conn, 'log');

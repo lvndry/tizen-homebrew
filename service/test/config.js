@@ -6,7 +6,7 @@ const { tmpdir } = require('os');
 
 process.env.HOMEBREW_CONFIG_DIR = mkdtempSync(`${tmpdir()}/homebrew-config-test-`);
 
-const config = require('../src/config.js');
+const config = require('../src/config.ts');
 
 const results = [];
 const check = (name, ok, detail) => {

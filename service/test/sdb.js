@@ -5,8 +5,8 @@
 
 const net = require('net');
 
-const adb = require('../src/tv/adb.js');
-const sdb = require('../src/tv/sdb.js');
+const adb = require('../src/tv/adb.ts');
+const sdb = require('../src/tv/sdb.ts');
 
 const results = [];
 function check(name, ok, detail) {

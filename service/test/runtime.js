@@ -1,6 +1,6 @@
 'use strict';
 
-const runtime = require('../src/obs/runtime.js');
+const runtime = require('../src/obs/runtime.ts');
 
 const results = [];
 const check = (name, ok, detail) => {

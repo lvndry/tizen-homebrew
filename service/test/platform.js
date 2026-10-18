@@ -4,7 +4,7 @@ const { mkdtempSync, writeFileSync } = require('fs');
 const { tmpdir } = require('os');
 const { join } = require('path');
 
-const platform = require('../src/obs/platform.js');
+const platform = require('../src/obs/platform.ts');
 
 const results = [];
 const check = (name, ok, detail) => {

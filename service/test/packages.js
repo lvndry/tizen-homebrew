@@ -20,8 +20,8 @@ writeFileSync(join(appsRoot, 'readable/res/wgt/config.xml'),
 mkdirSync(join(appsRoot, '.recovery'), { recursive: true });
 
 const load = () => {
-    delete require.cache[require.resolve('../src/tv/packages.js')];
-    return require('../src/tv/packages.js');
+    delete require.cache[require.resolve('../src/tv/packages.ts')];
+    return require('../src/tv/packages.ts');
 };
 
 const withTizen = (getAppsInfo, fn) => {

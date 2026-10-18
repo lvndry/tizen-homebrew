@@ -1,6 +1,6 @@
 'use strict';
 
-const { createRepl } = require('../src/dev/repl.js');
+const { createRepl } = require('../src/dev/repl.ts');
 
 const results = [];
 const check = (name, ok, detail) => {

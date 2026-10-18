@@ -1,7 +1,7 @@
 'use strict';
 
-const versions = require('../src/install/versions.js');
-const { createUpdates, AT_ONCE } = require('../src/install/updates.js');
+const versions = require('../src/install/versions.ts');
+const { createUpdates, AT_ONCE } = require('../src/install/updates.ts');
 
 const results = [];
 const check = (name, ok, detail) => {

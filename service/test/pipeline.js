@@ -1,7 +1,7 @@
 'use strict';
 
-const { createInstaller } = require('../src/install/pipeline.js');
-const { createStore } = require('../src/state.js');
+const { createInstaller } = require('../src/install/pipeline.ts');
+const { createStore } = require('../src/state.ts');
 const fixture = require('./fixture.js');
 
 const results = [];
@@ -13,7 +13,7 @@ const check = (name, ok, detail) => {
 const realPackage = fixture.wgt();
 
 {
-    const entry = require('../src/main.js');
+    const entry = require('../src/main.ts');
     check('the service exports onStart, which Tizen calls',
         typeof entry.onStart === 'function', `exports: ${Object.keys(entry).join(', ')}`);
 
@@ -48,7 +48,7 @@ const fakeDevice = (state = {}) => ({
     })
 });
 
-const installer = require('../src/install/installer.js');
+const installer = require('../src/install/installer.ts');
 const realStage = installer.stage;
 installer.stage = () => '/home/owner/share/tmp/sdk_tools/package.wgt';
 

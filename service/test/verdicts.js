@@ -3,8 +3,8 @@
 const { readFileSync } = require('fs');
 const { join } = require('path');
 
-const { interpret, failureIn, settled, SIGNATURES } = require('../src/install/verdicts.js');
-const { ErrorCode } = require('../src/protocol.js');
+const { interpret, failureIn, settled, SIGNATURES } = require('../src/install/verdicts.ts');
+const { ErrorCode } = require('../src/protocol.ts');
 
 const results = [];
 const check = (name, ok, detail) => {
@@ -100,14 +100,14 @@ const SUCCESS = 'coreinstall spend time = 1234 ms';
         SIGNATURES.every((signature) => codes.indexOf(signature.code) !== -1),
         SIGNATURES.filter((s) => codes.indexOf(s.code) === -1).map((s) => s.code).join(', '));
 
-    const ui = readFileSync(join(__dirname, '../../ui/src/main.js'), 'utf8');
+    const ui = readFileSync(join(__dirname, '../../ui/src/main.ts'), 'utf8');
     const table = /const EXPLANATIONS = \{([\s\S]*?)\n\};/.exec(ui);
     const explained = table ? (table[1].match(/^\s{4}(\w+):/gm) || []).map((line) => line.trim().replace(':', '')) : [];
     const missing = codes.filter((code) => explained.indexOf(code) === -1);
 
     check('and every code the service can send has a string on the phone',
         table !== null && missing.length === 0,
-        table ? `no explanation for: ${missing.join(', ')}` : 'could not find EXPLANATIONS in ui/src/main.js');
+        table ? `no explanation for: ${missing.join(', ')}` : 'could not find EXPLANATIONS in ui/src/main.ts');
 }
 
 const failed = results.filter((ok) => !ok).length;

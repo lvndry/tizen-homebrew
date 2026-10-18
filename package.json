@@ -30,17 +30,21 @@
     "push": "node tools/push.js",
     "repl": "node tools/repl.js",
     "dev": "npm run dev --workspace ui",
-    "dev:service": "node --require ./tools/dev-global.js service/src/main.js",
+    "dev:service": "node --require ./tools/dev-global.js service/src/main.ts",
     "clean": "node tools/clean.js",
     "version": "node tools/version.js",
     "version:check": "node tools/version.js --check",
-    "version:set": "node tools/version.js --set"
+    "version:set": "node tools/version.js --set",
+    "typecheck": "npm run typecheck --workspace service && npm run typecheck --workspace ui"
   },
   "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/ws": "^8.18.2",
     "acorn": "^8.14.0",
     "eslint": "^10.9.1",
     "jszip": "^3.10.1",
     "tizen": "https://github.com/reisxd/tizen.js/tarball/main",
+    "typescript": "^7.0.2",
     "ws": "^8.21.3"
   }
 }

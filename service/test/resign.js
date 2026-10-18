@@ -5,7 +5,7 @@ const JSZip = require('jszip');
 const { mkdtempSync } = require('fs');
 const { tmpdir } = require('os');
 
-const { resign, openPair, deviceOf, devicesOf } = require('../src/install/resign.js');
+const { resign, openPair, deviceOf, devicesOf } = require('../src/install/resign.ts');
 const { asPem } = require('../../tools/certificates.js');
 const fixture = require('./fixture.js');
 
@@ -129,7 +129,7 @@ const run = async () => {
             deviceOf(many) === 'OTHERSET0001', String(deviceOf(many)));
 
         process.env.HOMEBREW_CONFIG_DIR = mkdtempSync(`${tmpdir()}/homebrew-resign-test-`);
-        const config = require('../src/config.js');
+        const config = require('../src/config.ts');
 
         config.update(many);
 

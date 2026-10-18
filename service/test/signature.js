@@ -3,7 +3,7 @@
 const forge = require('node-forge');
 
 const Upstream = require('tizen/src/packageSigner.js');
-const Vendored = require('../src/install/signature.js');
+const Vendored = require('../src/install/signature.ts');
 const { asPem } = require('../../tools/certificates.js');
 
 const results = [];

@@ -37,7 +37,7 @@ const main = async () => {
     ui.heading('build service', stamp);
 
     const bundle = await rolldown({
-        input: join(root, 'src', 'main.js'),
+        input: join(root, 'src', 'main.ts'),
         platform: 'node',
         transform: {
             target: TARGET,

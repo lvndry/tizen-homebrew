@@ -1,7 +1,7 @@
 'use strict';
 
-const { startRecording, format, Facility } = require('../src/obs/log.js');
-const units = require('../src/obs/units.js');
+const { startRecording, format, Facility } = require('../src/obs/log.ts');
+const units = require('../src/obs/units.ts');
 
 const results = [];
 const check = (name, ok, detail) => {

@@ -52,7 +52,7 @@ function send(conn, type, payload) {
     conn.socket.send(JSON.stringify({ type, payload: payload || {} }));
 }
 
-require('../src/main.js');
+require('../src/main.ts');
 
 setTimeout(() => {
     let pin;

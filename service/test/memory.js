@@ -1,6 +1,6 @@
 'use strict';
 
-const memory = require('../src/obs/memory.js');
+const memory = require('../src/obs/memory.ts');
 
 const results = [];
 const check = (name, ok, detail) => {
