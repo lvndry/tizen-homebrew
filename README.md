@@ -1,18 +1,21 @@
 # Tizen Homebrew
 
-Install apps on a Samsung TV from your phone.
+Install apps on a Samsung TV from your phone — or from an agent.
 
 <img src="icon.png" width="96" align="right">
 
 Developer Mode normally points a TV at a computer that has to stay on the
 network. This points it at `127.0.0.1` — the TV becomes its own developer
-machine — and puts the interface on your phone. Set it up once; no computer
-after that.
+machine — and the whole surface is plain JSON over the network, so anything
+that can `curl` can drive it. Set it up once; no computer after that.
 
 - Install from a catalog, a GitHub release, a URL, or a USB stick
 - Re-signs every package for your TV, so builds signed by other people install
 - A dmesg-style log on the TV screen
 - An sdb shell, from the phone
+- An agent-friendly contract: [AGENTS.md](AGENTS.md) is the complete
+  operational reference for an LLM (or a script) driving the TV — install,
+  wake, restart, logs, remote keys
 
 **Discord**: https://discord.gg/WjxVnrsV4A
 
@@ -95,6 +98,25 @@ one. Your phone keeps the last one that worked until the TV restarts.
 version. Whether anything newer was *released* is a GitHub request per app, so
 it waits to be asked: **check** on a row, or **check all** under the list.
 Tizen Homebrew is in its own catalog, so it updates itself the same way.
+
+---
+
+## From an agent
+
+The service is a small HTTP API and the TV a set of keys, so an LLM with
+shell access can do everything a human does — and [AGENTS.md](AGENTS.md) is
+written exactly for that: the endpoints, the toolbox commands, and the honest
+failure modes (what `:8091 = 000` means, why silence from the TV is often a
+working result, the agent's contract: never power the TV off).
+
+```sh
+curl -H "x-homebrew-pin: 000000" http://<tv>:8091/packages   # what's on it
+node remote.js home ok up down                              # move the cursor
+curl -X POST --data-binary @app.wgt http://<tv>:8091/install   # put something on
+```
+
+The companion [samsung-tv-toolbox](https://github.com/lvndry/samsung-tv-toolbox)
+is the plain-Node side: pairing, remote keys, Wake-on-LAN, service restart.
 
 ---
 
