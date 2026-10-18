@@ -20,6 +20,7 @@ const { json, failure, bytes, readBody } = require('./http/respond.js');
 const pin = require('./auth/pin.js');
 const device = require('./tv/device.js');
 const sdb = require('./tv/sdb.js');
+const homeguard = require('./tv/homeguard.js');
 const packages = require('./tv/packages.js');
 const { Relay } = require('./tv/relay.js');
 const config = require('./config.js');
@@ -37,6 +38,17 @@ const BUILD = '__HOMEBREW_BUILD__';
 const ORIGIN = '__HOMEBREW_ORIGIN__';
 
 const DEVELOPER = globalThis.__HOMEBREW_DEV__ === true;
+
+// Boot marker: every time this service process starts, append a timestamp.
+// Lets us distinguish an on-boot start from a manual relaunch after a power
+// cycle (compare against /proc/uptime from the TV itself).
+try {
+    const bootLog = '/home/owner/share/tmp/sdk_tools/bootlog.txt';
+    require('fs').appendFileSync(
+        bootLog,
+        `start ${new Date().toISOString()} pid=${process.pid}\n`
+    );
+} catch (e) {}
 
 const start = () => {
     const startedAt = new Date().toISOString();
@@ -303,6 +315,78 @@ const start = () => {
             json(response, await repl.evaluate(source));
         });
 
+        router.on.post('/dev/sdb', async (request, response) => {
+            if (!gate(request, response)) return;
+
+            const source = (await readBody(request, 64 * 1024)).toString('utf8');
+
+            svc.warn(`sdb from ${host(request.socket && request.socket.remoteAddress)}: ` +
+                source.replace(/\s+/g, ' ').slice(0, 200));
+
+            let output;
+            try {
+                output = await sdb.withSession({ log: (line) => svc.info(line) }, (session) =>
+                    session.exec(source, { timeout: 30000, until: (o) => {
+                        const t = o.trimEnd();
+                        return t.length > 0 && /[A-Za-z0-9:]/.test(t[t.length - 1]);
+                    } }));
+            } catch (e) {
+                return json(response, { ok: false, error: e.message });
+            }
+            json(response, { ok: true, output: String(output || '') });
+        });
+
+
+        router.on.post('/dev/shell', async (request, response) => {
+            if (!gate(request, response)) return;
+
+            const cmd = (await readBody(request, 64 * 1024)).toString('utf8').trim();
+            if (!cmd) return json(response, { ok: false, error: 'empty command' });
+
+            svc.warn(`shell from ${host(request.socket && request.socket.remoteAddress)}: ` +
+                cmd.replace(/\s+/g, ' ').slice(0, 200));
+
+            // spawnSync: async child_process with stdio streams wedges Tizen's Node 18 event loop.
+            const { spawnSync } = require('child_process');
+
+            const result = spawnSync('/bin/sh', ['-c', cmd], { cwd: '/tmp', timeout: 45000 });
+            const out = (result.stdout || '').toString('utf8');
+            const err = (result.stderr || '').toString('utf8');
+            json(response, {
+                ok: true,
+                exit: result.status,
+                killed: result.signal ? `SIG${result.signal}` : null,
+                output: (out + (err ? '\n[stderr]\n' + err : '')).slice(0, 12000),
+            });
+        });
+
+        router.on.get('/dev/hglog', (request, response) => {
+            if (!gate(request, response)) return;
+            json(response, { ok: true, log: window.__hglog || [] });
+        });
+
+        router.on.post('/dev/hglog', async (request, response) => {
+            if (!gate(request, response)) return;
+            const body = (await readBody(request, 8 * 1024)).toString('utf8');
+            window.__hglog = window.__hglog || [];
+            window.__hglog.push({ t: Date.now(), body });
+            if (window.__hglog.length > 200) window.__hglog.shift();
+            json(response, { ok: true });
+        });
+
+        router.on.get('/dev/homeguard', (request, response) => {
+            if (!gate(request, response)) return;
+            json(response, homeguard.status());
+        });
+
+        router.on.post('/dev/homeguard', async (request, response) => {
+            if (!gate(request, response)) return;
+            const body = (await readBody(request, 8 * 1024)).toString('utf8');
+            let patch;
+            try { patch = JSON.parse(body || '{}'); } catch { patch = {}; }
+            json(response, homeguard.patch(patch));
+        });
+
         router.on.post('/dev/inspect', (request, response) => {
             if (!gate(request, response)) return;
 
@@ -466,6 +550,8 @@ const start = () => {
             ? `${type}; charset=utf-8`
             : type);
     });
+
+    homeguard.start();
 
     const server = createServer(router.listener);
 

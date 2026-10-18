@@ -44,10 +44,13 @@
          calls tizen.package any more, so nothing needs to ask for it.
 
          internet: reach the catalog origin and GitHub.
-         application.launch: start the background service from the UI page. -->
+         application.launch: start the background service from the UI page.
+         application.backgroundquery: observe app-state changes so the homeguard
+         can see the launcher come to the front. -->
     <tizen:privilege name="http://tizen.org/privilege/internet"/>
     <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
     <tizen:privilege name="http://tizen.org/privilege/application.launch"/>
+    <tizen:privilege name="http://tizen.org/privilege/application.backgroundquery"/>
     <tizen:privilege name="http://tizen.org/privilege/unlimitedstorage"/>
 
     <tizen:profile name="tv-samsung"/>

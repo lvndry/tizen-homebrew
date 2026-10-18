@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<widget xmlns:tizen="http://tizen.org/ns/widgets" xmlns="http://www.w3.org/ns/widgets" id="https://homeguard.local" version="1.0.0" viewmodes="maximized">
+    <access origin="*"></access>
+    <tizen:application id="HomeGuard1.HomeGuard" package="HomeGuard1" required_version="3.0"/>
+    <author>HomeGuard</author>
+    <content src="index.html"/>
+    <feature name="http://tizen.org/feature/screen.size.all"/>
+    <icon src="icon.png"/>
+    <name>HomeGuard</name>
+
+    <!-- Public privileges only (a partner privilege would need a partner
+         certificate, which this package does not carry).
+
+         application.launch: bring Bonsoir to the front when the launcher appears.
+         application.backgroundquery: observe other apps' state changes.
+         app.control: receive the suppress request from Bonsoir's Tizen OS chip. -->
+    <tizen:privilege name="http://tizen.org/privilege/application.launch"/>
+    <tizen:privilege name="http://tizen.org/privilege/application.backgroundquery"/>
+    <tizen:privilege name="http://tizen.org/privilege/app.control"/>
+
+    <tizen:profile name="tv-samsung"/>
+    <!-- background-support so the app keeps running after it hides itself:
+         the whole job is done from the background. -->
+    <tizen:setting screen-orientation="landscape" context-menu="disable" background-support="enable" encryption="disable" install-location="auto" hwkey-event="enable"/>
+</widget>
