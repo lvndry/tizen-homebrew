@@ -16,6 +16,15 @@ after that.
 
 **Discord**: https://discord.gg/WjxVnrsV4A
 
+<table>
+<tr>
+<td><img src="docs/screenshots/tv.png" width="800" alt="The television screen: the address to open, the pairing code, the log, and the buttons"></td>
+</tr>
+<tr>
+<td align="center"><sub>The address, the code, and whatever the service is doing. The yellow ring is where the remote is.</sub></td>
+</tr>
+</table>
+
 ---
 
 ## Install
@@ -24,12 +33,12 @@ One command. It carries its own runtime, so nothing has to be installed first.
 
 ### Linux/MacOS
 ```sh
-curl -fsSL https://sushydev.github.io/tizen-homebrew/install.sh | sh
+curl -fsSL https://lvndry.github.io/tizen-homebrew/install.sh | sh
 ```
 
 ### Windows
 ```powershell
-irm https://sushydev.github.io/tizen-homebrew/install.ps1 | iex
+irm https://lvndry.github.io/tizen-homebrew/install.ps1 | iex
 ```
 
 It tells you what to switch on, finds the TV, mints a Samsung certificate
@@ -56,12 +65,6 @@ cd tizen-homebrew
 npm install
 npm run full-bootstrap          # or: -- <tv-ip>, if you know it
 ```
-
-Same flow, built from source. It mints a **Partner** certificate — yours, your
-account, nothing shared — into `~/.tizen-certs`; `--public` mints a public one,
-which installs the same but carries no on-boot service. The certificates go to
-the TV as well, so from first boot it re-signs whatever it installs, including
-packages built by other people.
 
 ---
 
@@ -91,62 +94,7 @@ one. Your phone keeps the last one that worked until the TV restarts.
 **Updates.** Every **Apps** row says whether it is installed and at which
 version. Whether anything newer was *released* is a GitHub request per app, so
 it waits to be asked: **check** on a row, or **check all** under the list.
-Tizen Homebrew is in its own catalog, so it updates itself the same way. From a
-working copy, over the LAN:
-
-```sh
-npm run package && npm run push -- <tv-ip> <pin>
-```
-
----
-
-## Commands
-
-| | |
-| --- | --- |
-| `npm run full-bootstrap [-- <ip>]` | Certificate, build, install — the whole setup. Finds the TV itself if you do not name one |
-| `npm run mint -- <ip> [pin]` | Certificate only; adds this TV to the pair you have |
-| `npm run package` | Build a `.wgt` signed by nobody — what a release carries |
-| `npm run package -- --sign` | The same, signed for this machine's TV — what sdb needs |
-| `npm run bootstrap -- <ip>` | Install over sdb (needs Host PC IP pointed here) |
-| `npm run push -- <ip> <pin>` | Install over the LAN, once the app is running |
-| `npm run certs -- <ip> <pin>` | Re-send the TV's certificates (`--forget` removes) |
-| `npm run duid -- <ip> [pin]` | Print the device id a certificate binds to |
-| `npm run repl -- <ip>` | A prompt inside the running service — developer builds only |
-| `npm run doctor` | Check prerequisites when something looks wrong |
-
-`mint` `certs` `duid` `push` all work with the TV pinned to `127.0.0.1`, given
-the PIN. `bootstrap` cannot: it needs the sdbd a pinned set stops answering.
-Both certificate commands take `--public`.
-
-**Developer builds.** `--dev` fixes the PIN at `000000` and puts a prompt inside
-the service, so a build pushed every few minutes stops asking for a code off the
-screen:
-
-```sh
-npm run package -- --dev && npm run push -- <tv-ip> 000000
-npm run repl -- <tv-ip>
-```
-
-Every line is evaluated in the running service — `store.get()`, `await
-packages.list()`; `.inspect` opens Node's inspector for Chrome DevTools, and
-`.names` lists what is in scope. That is arbitrary code execution as the
-service, reachable by anything on the network, so an ordinary build carries no
-`/dev` routes: the bundler drops the branch, and `--release` refuses a developer
-build outright.
-
-**When it goes wrong**
-
-| The message | What to do |
-| --- | --- |
-| `Check certificate error … Invalid signature` | Your pair does not cover this TV — `npm run mint -- <ip>` |
-| `Author certificate not match` | The author certificate changed — `npm run bootstrap -- <ip> --replace` |
-| `accepted the connection then dropped it` | Host PC IP is not this machine. Set it, restart the TV. |
-
-**More than one TV.** One pair covers as many as you like: point `mint` at the
-next set and it adds that device, keeping the author certificate. That matters —
-Tizen refuses to update an app whose author changed, and the way out is an
-uninstall over sdb at every TV you already had.
+Tizen Homebrew is in its own catalog, so it updates itself the same way.
 
 ---
 
@@ -162,22 +110,18 @@ nowhere else. Prebuilt widgets therefore cannot be handed around, and the TV is
 given its own pair during setup: a set holding one re-signs everything it
 installs, in about 150ms.
 
-**Always on.** `config.xml` declares the service `on-boot` and `auto-restart`, so
-it comes up with the television: switch the set on, load the address on a phone,
-install. The app remains for the log, the pairing code and a restart button, and
-closing it leaves the service running. Confirmed on a QE65S93DATXXN under a
-partner certificate; both attributes are documented as partner and platform only,
-whether a public pair gets them is untested, and dropping them returns the
-service to starting when the app opens.
+**Always on.** `config.xml` declares the service `on-boot` and `auto-restart`,
+so it comes up with the television — switch the set on, load the address on a
+phone, install. The app remains for the log, the pairing code and a restart
+button, and closing it leaves the service running. `POST /restart` self-heals
+in a few seconds: on this firmware the platform only relaunches a service that
+died *abnormally*, so a restart dies by throwing, and a clean exit stays down.
 
-**Security.** The install endpoint is deliberately open to the network, gated by
-the 6-digit PIN: minted on first run, kept beside the signing keys, readable only
-over loopback so a person has to relay it. Keeping it rather than regenerating
-means a reboot neither unpairs every phone nor leaves the code readable only off
-the screen the service exists to avoid. Phones store it per TV and drop it when
-refused; five wrong guesses locks pairing for five minutes. The sdb relay is off
-by default, takes a second opt-in to survive reboots, and refuses commands that
-would disable it or uninstall the app.
+**Security.** The install endpoint is deliberately open to the network, gated
+by the 6-digit PIN: minted on first run, readable only over loopback so a
+person has to relay it. Five wrong guesses locks pairing for five minutes. The
+sdb relay is off by default, takes a second opt-in to survive reboots, and
+refuses commands that would disable it or uninstall the app.
 
 **The log.** sdbd's allowlist excludes every log tool, so the app carries its
 own. Press **show logs** on the TV; up/down a line, left/right a page, RED for
@@ -190,33 +134,6 @@ newest. `GET /logs?since=<seq>` returns the same records as JSON.
 
 **The catalog.** The app list is [`catalog/`](catalog/), published to GitHub
 Pages. Adding an app is a commit there — no rebuild, nothing to reinstall.
-`source.type` is `github` (newest release's first `.wgt`) or `url`. A `github`
-app's logo is `logo.png` in its repository root, guessed rather than declared;
-`icon` overrides it with an https URL, and an app with neither gets a monogram.
-
-```json
-{
-  "id": "tube",
-  "name": "YouTube",
-  "description": "YouTube without the advertisements",
-  "packageId": "tUb3Xq7Lm9",
-  "source": { "type": "github", "ref": "owner/repo" }
-}
-```
-
-**Updates.** `packageId` is the id an app installs under, and how a row knows it
-is already on the TV: the platform answers that for every app at once, locally,
-so the list never waits. Released versions are one GitHub request each — too much
-for a two-hundred-app catalog on the way to a screen — so that half is a button:
-three at a time, cached six hours, stopping early if GitHub starts refusing. Only
-strictly newer by semver lights **update**; anything else gets a blocked button
-and a line saying whether it is current or unchecked.
-
-**What a package says it is.** The phone shows the application rather than the
-file it arrived in — name, version, install id and icon, read out of the archive
-— covering a stick plugged into the TV and anything mid-install, the moment the
-bytes are in hand. A `.wgt` chosen for upload is opened on the phone itself
-(`ui/src/core/package.js`), so you can see what it is before sending it.
 
 ---
 
@@ -225,7 +142,7 @@ bytes are in hand. A `.wgt` chosen for upload is opened on the phone itself
 ```sh
 npm run dev          # both screens in a browser, no hardware needed
 npm run dev:service  # the service off-TV, on :8091
-npm test             # lint, protocol, PIN gate, install pipeline, re-signing
+npm test             # lint, typecheck, protocol, PIN gate, install pipeline
 ```
 
 `npm run dev` serves the TV at `/tv.html`, the phone at `/index.html`, both at
@@ -237,85 +154,35 @@ OpenTUI, compiled to one binary per platform. It calls `tools/` and `service/`
 directly rather than reimplementing them, so the sdb client and the re-signer
 have one implementation each.
 
-```sh
-cd installer && bun install && npm run natives   # every platform's renderer
-bun run start                                    # or: --wgt <path>, --public
-bun test
-```
-
 | Path | |
 | --- | --- |
-| `ui/src/views/television.js` | The TV screen: readouts, log console, credits |
-| `ui/src/views/screens.js` | The phone UI |
-| `ui/src/app.css` | The design system, one file |
-| `ui/src/core/remote.js` | D-pad focus, so the TV page works by remote |
-| `service/src/main.js` | Routes, and what the service is |
-| `service/src/install/pipeline.js` | Install, six named steps |
-| `service/src/install/resign.js` | Re-signing for this television |
-| `service/src/install/updates.js` | What is installed, and what has been released since |
-| `service/src/install/versions.js` | Semver, to the extent a release tag has one |
-| `service/src/tv/sdb.js` | Loopback sdb with real timeouts |
-| `service/src/obs/log.js` | The log everything else writes to |
+| `ui/src/views/television.ts` | The TV screen: readouts, log console, credits |
+| `ui/src/views/screens.ts` | The phone UI |
+| `service/src/main.ts` | Composition root; routes live in `service/src/routes/` |
+| `service/src/install/pipeline.ts` | Install, six named steps |
+| `service/src/install/resign.ts` | Re-signing for this television |
+| `service/src/tv/sdb.ts` | Loopback sdb with real timeouts |
+| `service/src/obs/log.ts` | The log everything else writes to |
 | `installer/src/work.ts` | The installer's steps, calling the above |
 
-Every one of those, and every tool in [`tools/`](tools/), opens with why it is
-the way it is. The build enforces two platform floors that are easy to trip:
-pages against Chromium 63, which drops CSS it cannot parse *silently*, and the
-service bundle against Node 12.
+The build enforces two platform floors that are easy to trip: pages against
+Chromium 63, which drops CSS it cannot parse *silently*, and the service bundle
+against Node 12.
 
-**Releasing.** Pushing a tag builds the widget and the five installer binaries
-and opens a draft release with them attached. Tag and version have to agree:
+---
+
+## Releasing
+
+Pushing a tag builds the widget and the installer binaries and opens a draft
+release with them attached. Tag and version have to agree:
 
 ```sh
 npm run version:set 1.2.0    # and commit
-git tag v1.2.0 && git push origin v1.2.0
+git tag v1.2.0 && git push fork v1.2.0
 ```
 
-Publishing the draft is the last step and the one that offers the update: drafts
-are invisible to `releases/latest`, which every TV and install script asks. The
-widget is **unsigned** — a signature names one television, and every Tizen
-Homebrew re-signs what it installs anyway, including itself. No secrets needed;
-`HOMEBREW_CATALOG_URL` as a repository variable overrides the catalog origin.
-
----
-
-## The look
-
-Both screens use the TV Dashboard (Bonsoir) language: a warm near-black
-navy, ivory serif display type, hairline rules, and a single marker-yellow
-accent that carries focus and status. Nothing is decorative for its own
-sake; the screens exist to be read from across the room.
-
-<table>
-<tr>
-<td><img src="docs/screenshots/tv.png" width="800" alt="The television screen: the address to open, the pairing code, the log, and the buttons"></td>
-</tr>
-<tr>
-<td align="center"><sub>The address, the code, and whatever the service is doing. The yellow ring is where the remote is.</sub></td>
-</tr>
-</table>
-
----
-
-## Keeping the service alive
-
-The service declares `on-boot` and `auto-restart`, and on a Tizen 6 Samsung
-(CU7105) they behave with a split personality that is worth knowing before
-you rely on it:
-
-- **`POST /restart` self-heals.** A clean `exit(0)` leaves the service down —
-  the platform only relaunches it when the process dies *abnormally*. So a
-  restart kills the process with an uncaught throw and is back in about five
-  seconds with no help (a bare non-zero exit is flaky on this firmware, so
-  the code throws rather than exits); a shutdown exits cleanly to stay down.
-- **A cold power cycle may leave it down.** `on-boot` did not reliably bring
-  the sideloaded service up after an unplug on the tested firmware. One nudge
-  from the paired machine fixes it: `node restart.js` in the samsung-tv-toolbox
-  (or the Control API `DELETE` + `POST` of `GJBBYNLkgP.TizenHomebrew`).
-- **A self-update leaves it down for the same reason.** Installing a new
-  widget stops the running process before it can restart itself, so updating
-  the service over the air also ends with a `restart.js` nudge. The `/install`
-  response is still fully sent first, so the installer knows it succeeded.
+The widget is **unsigned** — a signature names one television, and every Tizen
+Homebrew re-signs what it installs anyway, including itself.
 
 ---
 
