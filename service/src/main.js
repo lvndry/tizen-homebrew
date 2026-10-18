@@ -418,6 +418,14 @@ const start = () => {
             updates.changed();
 
             json(response, { ok: true, phases, ...outcome });
+
+            // A self-update replaces the very wgt this process runs out of. sdbd has already
+            // swapped the files, so the old code is stale: exit abnormally and let auto-restart
+            // load the new build — no manual relaunch.
+            if (outcome.packageId === 'GJBBYNLkgP') {
+                sdb.release();
+                setTimeout(() => process.exit(1), 300);
+            }
         } catch (error) {
             failure(response, 500, error.code || ErrorCode.INTERNAL, error.message, error.remedy);
             log.on(Facility.PKG).err(`upload install stopped after: ${phases.join(', ') || 'nothing'}`);
@@ -486,7 +494,12 @@ const start = () => {
     // Exiting is all the service can do about its own lifetime: the UI page holds no privilege to stop
     // a sibling application. What brings it back is config.xml — auto-restart if the platform honours
     // it, and the page's own launchAppControl if it does not.
-    const exitAfterResponse = (payload, asked, why) => (request, response) => {
+    // The service has no privilege to stop a sibling application, so it can only manage its own
+    // lifetime by exiting. A *clean* exit(0) leaves it down — the platform does not relaunch a
+    // service that ended gracefully. An *abnormal* exit (non-zero code) trips config.xml's
+    // auto-restart="true", which the platform does honour. So /restart exits abnormally to come
+    // back; /shutdown exits cleanly to stay down.
+    const exitAfterResponse = (payload, asked, why, restart) => (request, response) => {
         const verdict = authorise(request.headers['x-homebrew-pin']);
 
         if (!verdict.ok) {
@@ -503,15 +516,16 @@ const start = () => {
         // The response has to clear the socket first, because the caller waits on it.
         setTimeout(() => {
             svc.info(`exiting after ${took(recorded.uptime())} ${why}`);
+            if (restart) process.exit(1);
             process.exit(0);
         }, 300);
     };
 
     router.on.post('/restart', exitAfterResponse(
-        { restarting: true }, 'restart', 'so the platform reloads it on new code'));
+        { restarting: true }, 'restart', 'so auto-restart reloads it on new code', true));
 
     router.on.post('/shutdown', exitAfterResponse(
-        { stopping: true }, 'stop', 'because someone asked it to'));
+        { stopping: true }, 'stop', 'because someone asked it to', false));
 
     const uiRoot = [
         join(__dirname, '..', '..', 'ui', 'dist'),
