@@ -51,7 +51,7 @@ machine can reach its sdb daemon.
 **From a checkout**, with Node 20+:
 
 ```sh
-git clone https://github.com/SushyDev/tizen-homebrew.git
+git clone https://github.com/lvndry/tizen-homebrew.git
 cd tizen-homebrew
 npm install
 npm run full-bootstrap          # or: -- <tv-ip>, if you know it

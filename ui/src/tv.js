@@ -13,6 +13,22 @@ const PORT = 8091;
 const platform = typeof tizen === 'undefined' ? null : tizen;
 const application = platform ? platform.application.getCurrentApplication() : null;
 
+// A Control-API launch (a self-update, a nudge after a cold boot) arrives with
+// `?selfhide=1` in its data: the machine is putting this page up on a screen a
+// person is using for something else. Once the service socket is open the page
+// has done its only job — starting and talking to the service — so it goes to
+// the background then, the service left running. The brief flash on the set is
+// the price of the launch; the takeover is not.
+const launchData = (() => {
+    if (!platform || !platform.application) return '';
+
+    const control = platform.application.getLaunchParam ? platform.application.getLaunchParam() : null;
+
+    return (control && (control.data || control.getData && control.getData())) || '';
+})();
+
+const selfHides = launchData.indexOf('selfhide=1') !== -1;
+
 const BASE = application ? `http://127.0.0.1:${PORT}` : '';
 
 const RED = 403;
@@ -97,6 +113,28 @@ const post = (path) => new Promise((resolve, reject) => {
     request.ontimeout = () => reject(new Error('timeout'));
     request.send();
 });
+
+// The launch-param page leaves itself: the greeting proves the service is up, the timer gives the
+// socket a second to deliver it before the page goes. A backgrounding failure is not worth holding
+// the set on for — the old behaviour (stay put) is the fallback.
+let hasSelfHid = false;
+
+const selfHide = () => {
+    if (!selfHides || hasSelfHid) return;
+    hasSelfHid = true;
+
+    setTimeout(() => {
+        if (!store.get().pin || leaving) return;
+
+        say('service is up — going to the background', 'info');
+
+        try {
+            application.background();
+        } catch (e) {
+            say(`backgrounding failed: ${e.message || e}`, 'warn');
+        }
+    }, 1500);
+};
 
 const SERVICE_ID = application ? `${application.appInfo.packageId}.TizenHomebrewService` : null;
 
@@ -395,7 +433,10 @@ if (application) {
 // On the television the service is its own origin on loopback; off it, whatever is serving this page.
 const link = openSocket({
     url: application ? `ws://127.0.0.1:${PORT}` : null,
-    onStatus: changed,
+    onStatus: (status) => {
+        changed(status);
+        selfHide();
+    },
 
     onMessage: (type, payload) => {
         if (type === Receive.hello) return greeted(payload);
