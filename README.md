@@ -176,36 +176,6 @@ OpenTUI, compiled to one binary per platform. It calls `tools/` and `service/`
 directly rather than reimplementing them, so the sdb client and the re-signer
 have one implementation each.
 
-| Path | |
-| --- | --- |
-| `ui/src/views/television.ts` | The TV screen: readouts, log console, credits |
-| `ui/src/views/screens.ts` | The phone UI |
-| `service/src/main.ts` | Composition root; routes live in `service/src/routes/` |
-| `service/src/install/pipeline.ts` | Install, six named steps |
-| `service/src/install/resign.ts` | Re-signing for this television |
-| `service/src/tv/sdb.ts` | Loopback sdb with real timeouts |
-| `service/src/obs/log.ts` | The log everything else writes to |
-| `installer/src/work.ts` | The installer's steps, calling the above |
-
-The build enforces two platform floors that are easy to trip: pages against
-Chromium 63, which drops CSS it cannot parse *silently*, and the service bundle
-against Node 12.
-
----
-
-## Releasing
-
-Pushing a tag builds the widget and the installer binaries and opens a draft
-release with them attached. Tag and version have to agree:
-
-```sh
-npm run version:set 1.2.0    # and commit
-git tag v1.2.0 && git push fork v1.2.0
-```
-
-The widget is **unsigned** — a signature names one television, and every Tizen
-Homebrew re-signs what it installs anyway, including itself.
-
 ---
 
 Licensed GPL-3.0-only. Built on the work in the credits screen — the Homebrew
