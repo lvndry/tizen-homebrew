@@ -13,21 +13,6 @@ const PORT = 8091;
 const platform = typeof tizen === 'undefined' ? null : tizen;
 const application = platform ? platform.application.getCurrentApplication() : null;
 
-// A Control-API launch (a self-update, a nudge after a cold boot) arrives with
-// `?selfhide=1` in its data: the machine is putting this page up on a screen a
-// person is using for something else. Once the service socket is open the page
-// has done its only job — starting and talking to the service — so it goes to
-// the background then, the service left running. The brief flash on the set is
-// the price of the launch; the takeover is not.
-const launchData = (() => {
-    if (!platform || !platform.application) return '';
-
-    const control = platform.application.getLaunchParam ? platform.application.getLaunchParam() : null;
-
-    return (control && (control.data || control.getData && control.getData())) || '';
-})();
-
-const selfHides = launchData.indexOf('selfhide=1') !== -1;
 
 const BASE = application ? `http://127.0.0.1:${PORT}` : '';
 
@@ -117,23 +102,32 @@ const post = (path) => new Promise((resolve, reject) => {
 // The launch-param page leaves itself: the greeting proves the service is up, the timer gives the
 // socket a second to deliver it before the page goes. A backgrounding failure is not worth holding
 // the set on for — the old behaviour (stay put) is the fallback.
+// The Control API cannot say why the app was opened — it has no launch
+// parameters in the web runtime — so the page decides for itself: once the
+// greeting proves the service is up, the page has done its only job and hides.
+// A hidden TV app pauses its JavaScript but keeps running, and pressing
+// 'homebrew' on the remote opens it again.
+// A key is the only signal that distinguishes a person from a nudge, so the
+// page waits one beat after the greeting and hides unless someone has already
+// reached for the remote in that time.
 let hasSelfHid = false;
+let touched = false;
 
 const selfHide = () => {
-    if (!selfHides || hasSelfHid) return;
+    if (hasSelfHid) return;
     hasSelfHid = true;
 
     setTimeout(() => {
-        if (!store.get().pin || leaving) return;
+        if (!store.get().pin || leaving || touched) return;
 
         say('service is up — going to the background', 'info');
 
         try {
-            application.background();
+            application.hide();
         } catch (e) {
             say(`backgrounding failed: ${e.message || e}`, 'warn');
         }
-    }, 1500);
+    }, 4000);
 };
 
 const SERVICE_ID = application ? `${application.appInfo.packageId}.TizenHomebrewService` : null;
@@ -217,9 +211,13 @@ const SCROLLS: Record<number, [number, boolean]> = {
 };
 
 const keys = remote({
-    onBack: () => (store.get().view === 'main' ? leave() : close()),
+    onBack: () => {
+        touched = true;
+        return store.get().view === 'main' ? leave() : close();
+    },
 
     onKey: (keyCode: number) => {
+        touched = true;
         const { view } = store.get();
         // The red key only has a job inside the log: jump to the newest line.
         if (keyCode === RED) {
