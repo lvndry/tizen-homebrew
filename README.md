@@ -367,8 +367,9 @@ you rely on it:
 
 - **`POST /restart` self-heals.** A clean `exit(0)` leaves the service down —
   the platform only relaunches it when the process dies *abnormally*. So a
-  restart exits with a non-zero code and is back in about eight seconds with
-  no help; a shutdown exits cleanly to stay down.
+  restart kills the process with an uncaught throw and is back in about five
+  seconds with no help (a bare non-zero exit is flaky on this firmware, so
+  the code throws rather than exits); a shutdown exits cleanly to stay down.
 - **A cold power cycle may leave it down.** `on-boot` did not reliably bring
   the sideloaded service up after an unplug on the tested firmware. One nudge
   from the paired machine fixes it: `node restart.js` in the samsung-tv-toolbox

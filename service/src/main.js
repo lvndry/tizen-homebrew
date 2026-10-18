@@ -1,12 +1,29 @@
+// Service entry point. Tizen calls onStart when the service boots (and
+// onRequest when something launches into an already-running one); a desktop
+// run with no `tizen` object starts directly, so the same code serves as the
+// development harness.
+//
+// This file is the composition root: it builds the long-lived collaborators
+// (log, store, catalog, installer, relay, device probe, repl), hands them to
+// the route modules and the socket layer, and opens the HTTP server. The
+// HTTP surface itself lives in routes/*, one file per concern:
+//
+//   routes/status.js     read-only facts, split by who is asking
+//   routes/install.js    the mutating surface — installs and certificates
+//   routes/lifecycle.js  /restart and /shutdown
+//   routes/dev.js        the PIN-gated developer endpoints (dev builds only)
+//   routes/ui.js         the catch-all that serves the bundled UI pages
+//
+// The catch-all is registered last, after every other route.
+
 'use strict';
 
 const { createServer } = require('http');
-const { readFileSync, existsSync } = require('fs');
-const { join, extname, normalize } = require('path');
+const { join } = require('path');
+const { took } = require('./obs/units.js');
 const { homedir } = require('os');
 
 const { startRecording, Facility } = require('./obs/log.js');
-const { size, took, host } = require('./obs/units.js');
 const runtime = require('./obs/runtime.js');
 const platform = require('./obs/platform.js');
 const memory = require('./obs/memory.js');
@@ -16,7 +33,6 @@ const log = recorded.log;
 
 const { createStore } = require('./state.js');
 const { createRouter } = require('./http/router.js');
-const { json, failure, bytes, readBody } = require('./http/respond.js');
 const pin = require('./auth/pin.js');
 const device = require('./tv/device.js');
 const sdb = require('./tv/sdb.js');
@@ -27,6 +43,12 @@ const protocol = require('./protocol.js');
 const { createInstaller } = require('./install/pipeline.js');
 const { createCatalog } = require('./install/catalog.js');
 const { createUpdates } = require('./install/updates.js');
+
+const status = require('./routes/status.js');
+const install = require('./routes/install.js');
+const lifecycle = require('./routes/lifecycle.js');
+const dev = require('./routes/dev.js');
+const ui = require('./routes/ui.js');
 
 const { ErrorCode } = protocol;
 
@@ -43,10 +65,7 @@ const DEVELOPER = globalThis.__HOMEBREW_DEV__ === true;
 // cycle (compare against /proc/uptime from the TV itself).
 try {
     const bootLog = '/home/owner/share/tmp/sdk_tools/bootlog.txt';
-    require('fs').appendFileSync(
-        bootLog,
-        `start ${new Date().toISOString()} pid=${process.pid}\n`
-    );
+    require('fs').appendFileSync(bootLog, `start ${new Date().toISOString()} pid=${process.pid}\n`);
 } catch (e) {}
 
 const start = () => {
@@ -54,15 +73,15 @@ const start = () => {
     const secret = DEVELOPER ? pin.DEVELOPER_PIN : config.pairingPin();
 
     const svc = log.on(Facility.SVC);
-    const net = log.on(Facility.NET);
-    const dev = log.on(Facility.DEV);
 
     svc.info(`tizen homebrew ${BUILD} starting`);
     svc.info(`${runtime.summary()}, pid ${process.pid}`);
 
+    const devLog = log.on(Facility.DEV);
+
     platform.describe().then(
-        (facts) => platform.summary(facts).forEach((line) => dev.info(line)),
-        (error) => dev.warn(`could not read the platform: ${error.message}`)
+        (facts) => platform.summary(facts).forEach((line) => devLog.info(line)),
+        (error) => devLog.warn(`could not read the platform: ${error.message}`)
     );
 
     if (DEVELOPER) {
@@ -121,12 +140,12 @@ const start = () => {
 
     const announce = (state, previous) => {
         if (!previous) {
-            dev.info(state.onTv
+            devLog.info(state.onTv
                 ? `tizen ${state.platformVersion || 'unknown'}` +
                   `${state.needsResign ? ' — packages must be re-signed for this firmware' : ''}`
                 : 'not running on a television — this is a development harness');
 
-            if (state.onTv && state.developerMode === false) dev.warn('developer mode is off');
+            if (state.onTv && state.developerMode === false) devLog.warn('developer mode is off');
         } else if (previous.ready === state.ready) {
             return state;
         }
@@ -138,7 +157,7 @@ const start = () => {
                 ? `loopback 127.0.0.1:${sdb.SDB_PORT} — ${state.sdbDetail}`
                 : `loopback 127.0.0.1:${sdb.SDB_PORT} is not usable (${state.sdbError || state.reason || 'unknown'})`);
 
-            dev.info(state.reason === 'debugModeOff'
+            devLog.info(state.reason === 'debugModeOff'
                 ? 'if it stays this way: Developer Mode in Apps › 12345 › Settings, then restart the TV'
                 : 'if it stays this way: Host PC IP = 127.0.0.1 in Apps › 12345 › Settings, then restart ' +
                   'the TV — sdbd reads that value only at startup');
@@ -176,10 +195,10 @@ const start = () => {
     refreshDevice();
     if (device.onTv) setInterval(refreshDevice, 15000);
 
-    const fromLoopback = (request) => {
-        const address = (request.socket && request.socket.remoteAddress) || '';
-        return ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(address);
-    };
+    const LOOPBACK = ['127.0.0.1', '::1', '::ffff:127.0.0.1'];
+
+    const fromLoopback = (request) =>
+        LOOPBACK.indexOf((request.socket && request.socket.remoteAddress) || '') !== -1;
 
     const authorise = (presented) => {
         const lockout = store.select('lockout');
@@ -198,93 +217,40 @@ const start = () => {
         return { ok: true };
     };
 
-    const lanAddresses = () => {
-        const interfaces = require('os').networkInterfaces();
-        const wiredFirst = (name) => (/^(eth|en)/.test(name) ? 0 : /^(wlan|wl)/.test(name) ? 1 : 2);
-
-        return Object.entries(interfaces)
-            .flatMap(([name, entries]) => (entries || [])
-                .filter((entry) => (entry.family === 'IPv4' || entry.family === 4) && !entry.internal)
-                .map((entry) => ({ address: entry.address, iface: name })))
-            .sort((a, b) => wiredFirst(a.iface) - wiredFirst(b.iface));
-    };
-
-    // The TV's own page watches over the socket now, but these stay cheap to ask for and a phone or a
-    // script may still sweep them, so they are logged at debug.
-    const POLLED = ['/logs', '/state', '/pin', '/version', '/health'];
-
-    const quiet = (request, path) =>
-        request.method === 'GET' && fromLoopback(request) && POLLED.indexOf(path) !== -1;
-
-    const router = createRouter({ log, quiet });
-
-    router.on.get('/version', (_request, response) => json(response, {
+    const ctx = {
         build: BUILD,
-        node: process.version,
-        runtime: runtime.describe(),
-
-        startedAt,
-        uptimeSeconds: Math.round((Date.now() - Date.parse(startedAt)) / 1000),
-
-        // The gap between the two is the only visible sign that Tizen reloaded the service.
-        processUptimeSeconds: Math.round(process.uptime())
-    }));
-
-    router.on.get('/health', (_request, response) => json(response, {
-        ok: true,
         port: PORT,
-        onTv: device.onTv,
-        addresses: lanAddresses().map((entry) => entry.address)
-    }));
-
-    // What a caller on the television itself is allowed to know: the code, and where to reach this
-    // from a phone. The socket says the same thing in its greeting, so the two cannot drift.
-    const pairing = () => {
-        const addresses = lanAddresses();
-
-        return {
-            pin: secret,
-            port: PORT,
-            addresses: addresses.map((entry) => entry.address),
-            url: addresses.length ? `http://${addresses[0].address}:${PORT}` : null
-        };
+        startedAt,
+        runtime,
+        device,
+        packages,
+        store,
+        config,
+        log,
+        secret,
+        sdb,
+        svc,
+        net: log.on(Facility.NET),
+        recorded,
+        installer,
+        updates,
+        relay,
+        catalog,
+        protocol,
+        fromLoopback,
+        authorise
     };
 
-    router.on.get('/pin', (request, response) => {
-        if (!fromLoopback(request)) {
-            return failure(response, 403, ErrorCode.UNAUTHORIZED, 'Only readable from the TV itself.');
-        }
-
-        json(response, pairing());
+    const router = createRouter({
+        log,
+        quiet: (request, path) =>
+            request.method === 'GET' && fromLoopback(request) &&
+            ['/logs', '/state', '/pin', '/version', '/health'].indexOf(path) !== -1
     });
 
-    // Served from the last sweep: probing here made the set connect to its own sdbd twelve times a minute.
-    router.on.get('/state', (request, response) => {
-        if (!fromLoopback(request)) {
-            return failure(response, 403, ErrorCode.UNAUTHORIZED, 'Only readable from the TV itself.');
-        }
-
-        json(response, store.select('device') || {});
-    });
-
-    const authorisedRead = (request, response, handle) => {
-        if (fromLoopback(request)) return handle();
-
-        const verdict = authorise(request.headers['x-homebrew-pin']);
-        if (!verdict.ok) return failure(response, 403, verdict.code, verdict.message);
-
-        return handle();
-    };
-
-    router.on.get('/logs', (request, response, { query }) =>
-        authorisedRead(request, response, () =>
-            json(response, { lines: recorded.since(query.get('since')), uptime: recorded.uptime() })));
-
-    router.on.get('/packages', (request, response) =>
-        authorisedRead(request, response, () =>
-            packages.list().then(
-                (list) => json(response, { ok: true, packages: list }),
-                (error) => failure(response, 500, error.code || ErrorCode.INTERNAL, error.message))));
+    status.register(ctx, router);
+    install.register(ctx, router);
+    lifecycle.register(ctx, router);
 
     if (DEVELOPER) {
         const { createRepl } = require('./dev/repl.js');
@@ -294,280 +260,42 @@ const start = () => {
             catalog, updates, installer, relay, device, sdb, packages, platform, runtime, memory
         });
 
-        const gate = (request, response) => {
-            const verdict = authorise(request.headers['x-homebrew-pin']);
-            if (verdict.ok) return true;
-            failure(response, verdict.code === ErrorCode.LOCKED_OUT ? 429 : 403, verdict.code, verdict.message);
-            return false;
-        };
-
         svc.warn(`repl: POST /dev/eval, with ${repl.names.join(' ')} in scope`);
-
-        router.on.post('/dev/eval', async (request, response) => {
-            if (!gate(request, response)) return;
-
-            const source = (await readBody(request, 64 * 1024)).toString('utf8');
-
-            svc.warn(`eval from ${host(request.socket && request.socket.remoteAddress)}: ` +
-                source.replace(/\s+/g, ' ').slice(0, 200));
-
-            json(response, await repl.evaluate(source));
-        });
-
-        router.on.post('/dev/sdb', async (request, response) => {
-            if (!gate(request, response)) return;
-
-            const source = (await readBody(request, 64 * 1024)).toString('utf8');
-
-            svc.warn(`sdb from ${host(request.socket && request.socket.remoteAddress)}: ` +
-                source.replace(/\s+/g, ' ').slice(0, 200));
-
-            let output;
-            try {
-                output = await sdb.withSession({ log: (line) => svc.info(line) }, (session) =>
-                    session.exec(source, { timeout: 30000, until: (o) => {
-                        const t = o.trimEnd();
-                        return t.length > 0 && /[A-Za-z0-9:]/.test(t[t.length - 1]);
-                    } }));
-            } catch (e) {
-                return json(response, { ok: false, error: e.message });
-            }
-            json(response, { ok: true, output: String(output || '') });
-        });
-
-
-        router.on.post('/dev/shell', async (request, response) => {
-            if (!gate(request, response)) return;
-
-            const cmd = (await readBody(request, 64 * 1024)).toString('utf8').trim();
-            if (!cmd) return json(response, { ok: false, error: 'empty command' });
-
-            svc.warn(`shell from ${host(request.socket && request.socket.remoteAddress)}: ` +
-                cmd.replace(/\s+/g, ' ').slice(0, 200));
-
-            // spawnSync: async child_process with stdio streams wedges Tizen's Node 18 event loop.
-            const { spawnSync } = require('child_process');
-
-            const result = spawnSync('/bin/sh', ['-c', cmd], { cwd: '/tmp', timeout: 45000 });
-            const out = (result.stdout || '').toString('utf8');
-            const err = (result.stderr || '').toString('utf8');
-            json(response, {
-                ok: true,
-                exit: result.status,
-                killed: result.signal ? `SIG${result.signal}` : null,
-                output: (out + (err ? '\n[stderr]\n' + err : '')).slice(0, 12000),
-            });
-        });
-
-        router.on.post('/dev/inspect', (request, response) => {
-            if (!gate(request, response)) return;
-
-            const opened = repl.openInspector(Number(request.headers['x-homebrew-port']) || 9229);
-
-            svc.warn(`inspector: ${opened.ok ? `open at ${opened.url}` : opened.error}`);
-            json(response, opened);
-        });
+        dev.register({ ...ctx, repl }, router);
     }
 
-    router.on.post('/install', async (request, response) => {
-        const verdict = authorise(request.headers['x-homebrew-pin']);
-        if (!verdict.ok) return failure(response, verdict.code === ErrorCode.LOCKED_OUT ? 429 : 403, verdict.code, verdict.message);
-
-        const phases = [];
-        const began = Date.now();
-        const archive = await readBody(request);
-
-        log.on(Facility.PKG).info(`${host(request.socket && request.socket.remoteAddress)} uploaded ` +
-            `${size(archive.length)}${request.headers['x-homebrew-name'] ? ` as ${request.headers['x-homebrew-name']}` : ''} ` +
-            `in ${took(Date.now() - began)}`);
-
-        try {
-            const outcome = await installer.install(
-                { source: 'upload', reference: request.headers['x-homebrew-name'], upload: archive },
-                (phase, detail) => phases.push(detail ? `${phase}: ${detail}` : phase)
-            );
-
-            updates.changed();
-
-            json(response, { ok: true, phases, ...outcome });
-
-            // A self-update replaces the very wgt this process runs out of. sdbd has already
-            // swapped the files, so the old code is stale: exit abnormally and let auto-restart
-            // load the new build — no manual relaunch.
-            if (outcome.packageId === 'GJBBYNLkgP') {
-                sdb.release();
-                setTimeout(() => process.exit(1), 300);
-            }
-        } catch (error) {
-            failure(response, 500, error.code || ErrorCode.INTERNAL, error.message, error.remedy);
-            log.on(Facility.PKG).err(`upload install stopped after: ${phases.join(', ') || 'nothing'}`);
-        }
-    });
-
-    router.on.post('/certificates', async (request, response) => {
-        const verdict = authorise(request.headers['x-homebrew-pin']);
-        if (!verdict.ok) return failure(response, verdict.code === ErrorCode.LOCKED_OUT ? 429 : 403, verdict.code, verdict.message);
-
-        const sent = await readBody(request, 4 * 1024 * 1024);
-
-        const pair = (() => {
-            try {
-                return JSON.parse(sent.toString('utf8'));
-            } catch (e) {
-                return null;
-            }
-        })();
-
-        const devices = ((pair || {}).devices || []).filter((name) => typeof name === 'string' && name);
-
-        const opened = (() => {
-            try {
-                return require('./install/resign.js').openPair(pair);
-            } catch (error) {
-                return { error };
-            }
-        })();
-
-        if (opened.error) {
-            return failure(response, 400, ErrorCode.BAD_MESSAGE, opened.error.message);
-        }
-
-        const device = devices[0] || null;
-        const state = store.select('device');
-        const here = state && state.duid;
-
-        config.update({
-            author: pair.author,
-            distributor: pair.distributor,
-            certDuid: device,
-            certDuids: devices,
-            certCreatedAt: new Date().toISOString()
-        });
-
-        const mismatched = Boolean(here && devices.length && devices.indexOf(here) === -1);
-
-        log.on(Facility.CFG)[mismatched ? 'warn' : 'ok'](
-            `certificates stored for ${devices.join(', ') || 'an unnamed device'}` +
-            (mismatched ? `, but this television is ${here} — installs will be refused` : ''));
-
-        json(response, { ok: true, device, devices, matchesThisTv: !mismatched, thisTv: here || null });
-    });
-
-    router.on.delete('/certificates', (request, response) => {
-        const verdict = authorise(request.headers['x-homebrew-pin']);
-        if (!verdict.ok) return failure(response, 403, verdict.code, verdict.message);
-
-        config.forgetCertificates();
-        log.on(Facility.CFG).info('certificates forgotten');
-
-        json(response, { ok: true });
-    });
-
-    // Exiting is all the service can do about its own lifetime: the UI page holds no privilege to stop
-    // a sibling application. What brings it back is config.xml — auto-restart if the platform honours
-    // it, and the page's own launchAppControl if it does not.
-    // The service has no privilege to stop a sibling application, so it can only manage its own
-    // lifetime by exiting. A *clean* exit(0) leaves it down — the platform does not relaunch a
-    // service that ended gracefully. An *abnormal* exit (non-zero code) trips config.xml's
-    // auto-restart="true", which the platform does honour. So /restart exits abnormally to come
-    // back; /shutdown exits cleanly to stay down.
-    const exitAfterResponse = (payload, asked, why, restart) => (request, response) => {
-        const verdict = authorise(request.headers['x-homebrew-pin']);
-
-        if (!verdict.ok) {
-            return failure(response, verdict.code === ErrorCode.LOCKED_OUT ? 429 : 403, verdict.code, verdict.message);
-        }
-
-        json(response, { ok: true, build: BUILD, ...payload });
-
-        svc.warn(`${host(request.socket && request.socket.remoteAddress)} asked the service to ${asked}`);
-
-        // sdbd is told the connection is going, rather than finding out from a reset when this exits.
-        sdb.release();
-
-        // The response has to clear the socket first, because the caller waits on it.
-        setTimeout(() => {
-            svc.info(`exiting after ${took(recorded.uptime())} ${why}`);
-            if (restart) process.exit(1);
-            process.exit(0);
-        }, 300);
-    };
-
-    router.on.post('/restart', exitAfterResponse(
-        { restarting: true }, 'restart', 'so auto-restart reloads it on new code', true));
-
-    router.on.post('/shutdown', exitAfterResponse(
-        { stopping: true }, 'stop', 'because someone asked it to', false));
-
-    const uiRoot = [
-        join(__dirname, '..', '..', 'ui', 'dist'),
-        join(__dirname, '..', 'ui', 'dist'),
-        join(__dirname, '..', '..', 'ui')
-    ].find(existsSync);
-
-    if (uiRoot) {
-        svc.info(`serving the phone UI from ${uiRoot}`);
-    } else {
-        svc.err('no UI assets in this build — the phone will get a 500 and nothing else');
-    }
-
-    router.on.get('/*', (request, response, { path }) => {
-        if (!uiRoot) return failure(response, 500, ErrorCode.INTERNAL, 'UI assets are missing from this build.');
-
-        const requested = path === '/' ? '/index.html' : path;
-        const file = join(uiRoot, normalize(requested));
-
-        // Confirms the collapsed path is still inside the UI directory — this would serve any file on the TV.
-        if (!file.startsWith(uiRoot) || !existsSync(file)) {
-            return failure(response, 404, ErrorCode.NOT_FOUND, `No such file: ${requested}`);
-        }
-
-        const types = {
-            '.html': 'text/html',
-            '.js': 'application/javascript',
-            '.css': 'text/css',
-            '.png': 'image/png',
-            '.wav': 'audio/wav'
-        };
-
-        const type = types[extname(file)] || 'application/octet-stream';
-
-        bytes(response, readFileSync(file), type.startsWith('text/') || type.endsWith('javascript')
-            ? `${type}; charset=utf-8`
-            : type);
-    });
-
+    // The catch-all must come after every other route.
+    ui.register(ctx, router);
 
     const server = createServer(router.listener);
 
     // A failed bind arrives as an event, so without this nothing listens and nothing says so.
     server.on('error', (error) => {
-        net.err(`cannot listen on ${PORT}: ${error.message}`);
+        ctx.net.err(`cannot listen on ${PORT}: ${error.message}`);
 
         if (error.code === 'EADDRINUSE') {
-            net.err('another app or a system service has claimed that port — nothing will answer');
+            ctx.net.err('another app or a system service has claimed that port — nothing will answer');
         }
     });
 
     server.listen(PORT, '0.0.0.0', () => {
-        net.ok(`listening on 0.0.0.0:${PORT}`);
+        ctx.net.ok(`listening on 0.0.0.0:${PORT}`);
 
-        const addresses = lanAddresses();
+        const addresses = ctx.lanAddresses();
 
         if (addresses.length === 0) {
-            net.warn('no LAN address — this TV is not on a network, so no phone can reach it');
+            ctx.net.warn('no LAN address — this TV is not on a network, so no phone can reach it');
         }
 
-        addresses.forEach((entry, index) => net.info(
+        addresses.forEach((entry, index) => ctx.net.info(
             `${index === 0 ? 'reachable at' : 'also at'} http://${entry.address}:${PORT} (${entry.iface})`));
 
         svc.ok(`startup finished in ${took(recorded.uptime())}`);
-
     });
 
     sockets = require('./socket.js').attach({
         server, store, secret, authorise, installer, catalog, updates, relay, refreshDevice,
-        fromLoopback, greeting: () => ({ ...pairing(), build: BUILD }), recorded, config, protocol, log
+        fromLoopback, greeting: () => ({ ...ctx.pairing(), build: BUILD }), recorded, config, protocol, log
     });
 
     return { server, port: PORT, pin: secret, build: BUILD };
