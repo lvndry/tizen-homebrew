@@ -12,6 +12,9 @@
 //     transcoding (the desktop default, videotoolbox, is Apple-only)
 //   - listen() is patched so the primary port is always 11470, the port a
 //     Stremio client on the LAN expects, instead of first-free-from-11470
+//   - every boot stage appends a line to /home/owner/.stremio-server-boot.log,
+//     so a silent crash is diagnosable from the homebrew service, which can
+//     read /home/owner
 //
 // Everything else — the HTTP API, the addon proxy, the WebTorrent engine — is
 // the unmodified desktop bundle.
@@ -21,34 +24,48 @@
 const fs = require('fs');
 const path = require('path');
 const net = require('net');
+const os = require('os');
 
 const PORT = 11470;
 
-const appPath = '/home/owner/.stremio-server';
+const crashLog = '/home/owner/.stremio-server-boot.log';
+
+const note = (msg) => {
+    try {
+        fs.appendFileSync(crashLog, '[' + new Date().toISOString() + '] ' + msg + '\n');
+    } catch (e) {
+        // the log must never kill the boot
+    }
+};
+
+note('start pid=' + process.pid);
+
+let dataPath = '/home/owner/.stremio-server';
 
 try {
-    fs.mkdirSync(appPath, { recursive: true });
+    fs.mkdirSync(dataPath, { recursive: true });
 } catch (e) {
-    // fall back to the app's own sandbox if /home/owner is not writable
-    process.env.APP_PATH = process.env.TIZEN_APP_DATA_PATH
-        ? path.join(process.env.TIZEN_APP_DATA_PATH, 'stremio')
-        : appPath;
-    fs.mkdirSync(process.env.APP_PATH, { recursive: true });
+    // fall back to the app's own writable sandbox if /home/owner refuses
+    note('home/owner not writable: ' + (e && e.message));
+    dataPath = path.join(os.tmpdir(), 'stremio-server');
+    fs.mkdirSync(dataPath, { recursive: true });
 }
 
-process.env.APP_PATH = appPath;
+process.env.APP_PATH = dataPath;
+
+note('data path ready: ' + dataPath);
 
 // A fresh server-settings.json tuned for a 3.85GB television. The keys match
 // what the desktop server writes; on a missing file it logs "Cannot update
 // settings ENOENT" but still starts with built-in defaults, which is why we
 // create it here with the cache limited before the bundle runs.
-const settingsFile = path.join(appPath, 'server-settings.json');
+const settingsFile = path.join(dataPath, 'server-settings.json');
 
 if (!fs.existsSync(settingsFile)) {
     const settings = {
         serverVersion: '4.21.2',
-        appPath: appPath,
-        cacheRoot: appPath,
+        appPath: dataPath,
+        cacheRoot: dataPath,
         cacheRootVersion: 0,
         cacheRootsToClean: [],
         cacheSize: 536870912,
@@ -72,11 +89,12 @@ if (!fs.existsSync(settingsFile)) {
     };
 
     fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 4));
+    note('settings written');
 }
 
 // The bundle listens on 11470 and retries 11471, 11472... until one is free.
 // On the television 11470 is the port clients expect, so force it back if the
-// bundle drifted to a higher port on a previous (partial) start.
+// bundle drifts to a higher port on a previous (partial) start.
 const originalListen = net.Server.prototype.listen;
 
 net.Server.prototype.listen = function (arg0, arg1, arg2, arg3) {
@@ -87,4 +105,13 @@ net.Server.prototype.listen = function (arg0, arg1, arg2, arg3) {
     return originalListen.call(this, arg0, arg1, arg2, arg3);
 };
 
-require('./server.js');
+note('requiring the bundle');
+
+try {
+    require('./src/server.js');
+} catch (e) {
+    note('bundle threw: ' + (e && e.stack ? e.stack : e));
+    throw e;
+}
+
+note('bundle loaded');

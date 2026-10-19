@@ -4,5 +4,51 @@
     <meta charset="utf-8">
     <title>Stremio Server</title>
 </head>
-<body></body>
+<body>
+<!-- This page is not a UI: it is the trigger that starts the service. The
+     Control API can launch the app but nothing else, and on-boot does not
+     fire for sideloaded services on this firmware — so the page does what
+     the homebrew TV screen does: ask the platform to start the service,
+     then leave the screen on its own. -->
+<script>
+'use strict';
+
+(function () {
+    var log = '/home/owner/.stremio-server-boot.log';
+
+    var note = function (msg) {
+        try {
+            require('fs').appendFileSync(log, '[' + new Date().toISOString() + '] ' + msg + '\n');
+        } catch (e) { }
+    };
+
+    note('page loaded');
+
+    var launch = function () {
+        tizen.application.launchAppControl(
+            new tizen.ApplicationControl('http://tizen.org/appcontrol/operation/service'),
+            'S6K2WQ8MnP.StremioServerService',
+            function () {
+                note('service launched');
+                hide();
+            },
+            function (e) {
+                note('service launch failed: ' + e.message);
+                hide();
+            }
+        );
+    };
+
+    var hide = function () {
+        try {
+            tizen.application.getCurrentApplication().hide();
+        } catch (e) {
+            note('hide failed: ' + e.message);
+        }
+    };
+
+    setTimeout(launch, 500);
+})();
+</script>
+</body>
 </html>

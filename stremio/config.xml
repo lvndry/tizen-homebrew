@@ -9,11 +9,12 @@
     <icon src="icon.png"/>
     <name>Stremio Server</name>
 
-    <!-- The same privileges the homebrew service declares: internet so the
-         torrent engine and addons can reach the network, unlimitedstorage so
-         the torrent cache can live under /home/owner. The id suffix must
-         match the tizen:service id below. -->
+    <!-- internet: the torrent engine and addon proxies reach the network.
+         application.launch: the UI page starts the service — without it the
+         launchAppControl call is refused and nothing in the package runs.
+         unlimitedstorage: the torrent cache lives under /home/owner. -->
     <tizen:privilege name="http://tizen.org/privilege/internet"/>
+    <tizen:privilege name="http://tizen.org/privilege/application.launch"/>
     <tizen:privilege name="http://tizen.org/privilege/unlimitedstorage"/>
 
     <tizen:profile name="tv-samsung"/>
