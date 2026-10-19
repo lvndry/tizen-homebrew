@@ -68,6 +68,42 @@ try {
     require('fs').appendFileSync(bootLog, `start ${new Date().toISOString()} pid=${process.pid}\n`);
 } catch (e) {}
 
+// The Stremio server is a sibling service with the same on-boot gap: it
+// does not come up on its own after a cold boot, and it is the thing that
+// keeps a torrent stream alive when the Mac is off. So every start of this
+// service checks :11470 and, if it is silent, launches it cross-app. It
+// checks twice — immediately, then again a minute later, because the two
+// services boot in parallel and the first look can race the other start.
+const reviveCompanions = () => {
+    const companion = log.on(Facility.SVC);
+
+    const probe = () => new Promise((resolve) => {
+        const req = require('http').get(
+            { host: '127.0.0.1', port: 11470, timeout: 1500 },
+            (res) => { resolve(true); res.resume(); res.on('end', () => {}); }
+        );
+        req.on('timeout', () => { req.destroy(); resolve(false); });
+        req.on('error', () => resolve(false));
+    });
+
+    const revive = (delay: number, label: string) => {
+        setTimeout(async () => {
+            if (await probe()) return;
+
+            try {
+                (globalThis as any).tizen.application.launch('S6K2WQ8MnP.StremioServerService');
+                companion.info(`stremio server was down (${label}) — launched it`);
+            } catch (e) {
+                companion.info(`stremio server was down (${label}) — ${e.message || e} (reinstall it to restore)`);
+            }
+        }, delay);
+    };
+
+    revive(3000, 'first check');
+    revive(60_000, 'second check');
+};
+
+
 const start = () => {
     const startedAt = new Date().toISOString();
     const secret = DEVELOPER ? pin.DEVELOPER_PIN : config.pairingPin();
@@ -297,6 +333,8 @@ const start = () => {
         server, store, secret, authorise, installer, catalog, updates, relay, refreshDevice,
         fromLoopback, greeting: () => ({ ...ctx.pairing(), build: BUILD }), recorded, config, protocol, log
     });
+
+    reviveCompanions();
 
     return { server, port: PORT, pin: secret, build: BUILD };
 };
