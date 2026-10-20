@@ -90,9 +90,13 @@ const reviveCompanions = () => {
         setTimeout(async () => {
             if (await probe()) return;
 
+            // Launch the app, not the service: on this firmware a cross-app
+            // launch of a service id is a silent no-op, while the app's page
+            // starts the service for it through launchAppControl.
             try {
-                (globalThis as any).tizen.application.launch('S6K2WQ8MnP.StremioServerService');
-                companion.info(`stremio server was down (${label}) — launched it`);
+                (globalThis as any).tizen.application.launch('S6K2WQ8MnP.StremioServer',
+                    () => companion.info(`stremio server was down (${label}) — launched it`),
+                    (e: any) => companion.info(`stremio server was down (${label}) — launch refused: ${e.code || e.message}`));
             } catch (e) {
                 companion.info(`stremio server was down (${label}) — ${e.message || e} (reinstall it to restore)`);
             }
