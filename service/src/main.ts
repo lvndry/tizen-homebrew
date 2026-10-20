@@ -84,10 +84,14 @@ const isBootStart = () => {
 //              it is the thing that keeps a torrent stream alive when the
 //              Mac is off, so a down server means a broken stream.
 //   bonsoir  — the TV's front door. It is the default screen, so it must be
-//              the first thing on the glass after a boot; it only runs when
-//              we launch it, which is why its revive is gated to boot
-//              starts: an update restart must not steal the screen back
-//              while the user is watching something else.
+//              the first thing on the glass after the set wakes, which means
+//              it comes back on every start of this service: a standby
+//              resume re-runs this handler in the same process (the bootlog
+//              shows repeated same-pid starts), and a cold boot fires it via
+//              on-boot. The late post-launcher windows, which only matter
+//              against the boot launcher stealing focus, stay gated to boot
+//              starts so an update restart does not chase the screen for
+//              four minutes.
 //
 // Every start of this service walks the list; each companion checks twice —
 // immediately, then a minute later — because the services boot in parallel
@@ -129,14 +133,13 @@ const reviveCompanions = () => {
         launch('S6K2WQ8MnP.StremioServer', 'stremio server', label);
     });
 
-    if (isBootStart()) {
-        // The early checks put the dashboard on the glass; the late ones win
-        // the race — the system launcher opens ~30s into the boot and steals
-        // focus from whatever it finds in front, so relaunching the running
-        // app brings it back on top.
-        schedule((label) => Promise.resolve(launch('BonsoirTV1.Bonsoir', 'bonsoir', label)),
-            [[3000, 'early check'], [60_000, 'second check'], [120_000, 'post-launcher relaunch'], [240_000, 'late relaunch']]);
-    }
+    // Every start puts the dashboard back on the glass — standby resume
+    // included, since that is how the set is actually turned on. The late
+    // windows only win the boot-launcher focus race, so they are boot-only.
+    schedule((label) => Promise.resolve(launch('BonsoirTV1.Bonsoir', 'bonsoir', label)),
+        isBootStart()
+            ? [[3000, 'early check'], [60_000, 'second check'], [120_000, 'post-launcher relaunch'], [240_000, 'late relaunch']]
+            : [[3000, 'early check'], [60_000, 'second check']]);
 };
 
 
