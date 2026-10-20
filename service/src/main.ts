@@ -61,50 +61,80 @@ const ORIGIN = '__HOMEBREW_ORIGIN__';
 const DEVELOPER = globalThis.__HOMEBREW_DEV__ === true;
 
 // Boot marker: every time this service process starts, append a timestamp.
-// Lets us distinguish an on-boot start from a manual relaunch after a power
-// cycle (compare against /proc/uptime from the TV itself).
 try {
     const bootLog = '/home/owner/share/tmp/sdk_tools/bootlog.txt';
     require('fs').appendFileSync(bootLog, `start ${new Date().toISOString()} pid=${process.pid}\n`);
 } catch (e) {}
 
-// The Stremio server is a sibling service with the same on-boot gap: it
-// does not come up on its own after a cold boot, and it is the thing that
-// keeps a torrent stream alive when the Mac is off. So every start of this
-// service checks :11470 and, if it is silent, launches it cross-app. It
-// checks twice — immediately, then again a minute later, because the two
-// services boot in parallel and the first look can race the other start.
+// A start within a few minutes of the TV's own boot is a boot start; later
+// starts are updates or manual relaunches. /proc/uptime is the TV's own
+// clock, so no NTP is involved.
+const isBootStart = () => {
+    try {
+        const uptime = Number(require('fs').readFileSync('/proc/uptime', 'utf8').split(' ')[0]);
+        return uptime < 180;
+    } catch (e) {
+        return false;
+    }
+};
+
+// Companions this service keeps alive on the TV, in launch order:
+//
+//   stremio  — its server does not come up on its own after a cold boot, and
+//              it is the thing that keeps a torrent stream alive when the
+//              Mac is off, so a down server means a broken stream.
+//   bonsoir  — the TV's front door. It is the default screen, so it must be
+//              the first thing on the glass after a boot; it only runs when
+//              we launch it, which is why its revive is gated to boot
+//              starts: an update restart must not steal the screen back
+//              while the user is watching something else.
+//
+// Every start of this service walks the list; each companion checks twice —
+// immediately, then a minute later — because the services boot in parallel
+// and the first look can race the other start.
 const reviveCompanions = () => {
     const companion = log.on(Facility.SVC);
 
-    const probe = () => new Promise((resolve) => {
+    const probePort = (port: number) => new Promise((resolve) => {
         const req = require('http').get(
-            { host: '127.0.0.1', port: 11470, timeout: 1500 },
+            { host: '127.0.0.1', port, timeout: 1500 },
             (res) => { resolve(true); res.resume(); res.on('end', () => {}); }
         );
         req.on('timeout', () => { req.destroy(); resolve(false); });
         req.on('error', () => resolve(false));
     });
 
-    const revive = (delay: number, label: string) => {
-        setTimeout(async () => {
-            if (await probe()) return;
-
-            // Launch the app, not the service: on this firmware a cross-app
-            // launch of a service id is a silent no-op, while the app's page
-            // starts the service for it through launchAppControl.
-            try {
-                (globalThis as any).tizen.application.launch('S6K2WQ8MnP.StremioServer',
-                    () => companion.info(`stremio server was down (${label}) — launched it`),
-                    (e: any) => companion.info(`stremio server was down (${label}) — launch refused: ${e.code || e.message}`));
-            } catch (e) {
-                companion.info(`stremio server was down (${label}) — ${e.message || e} (reinstall it to restore)`);
-            }
-        }, delay);
+    const launch = (appId: string, name: string, label: string) => {
+        // Launch the app, not the service: on this firmware a cross-app
+        // launch of a service id is a silent no-op, while the app's page
+        // starts the service for it through launchAppControl.
+        try {
+            (globalThis as any).tizen.application.launch(appId,
+                () => companion.info(`${name} was down (${label}) — launched it`),
+                (e: any) => companion.info(`${name} was down (${label}) — launch refused: ${e.code || e.message}`));
+        } catch (e) {
+            companion.info(`${name} was down (${label}) — ${e.message || e} (reinstall it to restore)`);
+        }
     };
 
-    revive(3000, 'first check');
-    revive(60_000, 'second check');
+    const schedule = (revive: (label: string) => Promise<void>) => {
+        const check = (delay: number, label: string) => {
+            setTimeout(async () => { await revive(label); }, delay);
+        };
+        check(3000, 'first check');
+        check(60_000, 'second check');
+    };
+
+    schedule(async (label) => {
+        if (await probePort(11470)) return;
+        launch('S6K2WQ8MnP.StremioServer', 'stremio server', label);
+    });
+
+    if (isBootStart()) {
+        schedule(async (label) => {
+            launch('BonsoirTV1.Bonsoir', 'bonsoir', label);
+        });
+    }
 };
 
 
