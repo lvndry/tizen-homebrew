@@ -126,23 +126,19 @@ const createInstaller = ({ sdb, device, config, resigner, store, log }) => {
         const runInstaller = async (carried) => {
             phase('installing', carried.identity.name || carried.identity.packageId);
 
-            const command = `shell:0 vd_appinstall ${carried.identity.packageId} ${carried.stagedPath}`;
-            const began = Date.now();
+            // Uninstall before installing: a self-update that dies mid-install has been
+            // observed to leave the old copy beside the new one, and two copies of the
+            // same package start the same service twice. A missing id is a clean no-op,
+            // so the plain install path pays nothing for this.
+            const uninstall = `shell:0 vd_appuninstall ${carried.identity.packageId}`;
 
-            sdbSays.info(command);
+            sdbSays.info(uninstall);
 
-            const result = await sdb.withSession({ log: (line) => sdbSays.info(line) }, (session) =>
-                installer.run(session, carried.stagedPath, carried.identity.packageId));
-
-            const verdict = String((result && result.output) || '')
-                .split('\n')
-                .map((line) => line.trim())
-                .filter(Boolean)
-                .pop();
-
-            if (verdict) sdbSays.info(verdict);
-            sdbSays.ok(`vd_appinstall finished in ${took(Date.now() - began)}`);
-
+            await sdb.withSession({ log: (line) => sdbSays.info(line) }, async (session) => {
+                const cleared = await session.exec(uninstall, { timeout: 30000 });
+                sdbSays.info(`old copy gone: ${String(cleared).trim() || '(clean)'}`);
+                return installer.run(session, carried.stagedPath, carried.identity.packageId);
+            });
             return carried;
         };
 

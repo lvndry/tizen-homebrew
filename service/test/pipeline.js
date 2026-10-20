@@ -89,6 +89,35 @@ const run = async () => {
             String(announced[0][1].icon).slice(0, 40));
     }
 
+
+    {
+        // A self-update that died mid-install left two copies of the same package on the set,
+        // so the installer must clear the old copy before it installs the new one.
+        const commands = [];
+        const store = createStore({ installing: false, catalog: [] });
+
+        const { install } = createInstaller({
+            sdb: { withSession: (_options, run) => run({
+                exec: (c) => {
+                    commands.push(c);
+                    return Promise.resolve(c.includes('vd_appinstall') ? 'coreinstall spend time = 1234 ms' : 'ok');
+                },
+                close: () => {}
+            }) },
+            device: fakeDevice(), config: fakeConfig({ author: 'present' }),
+            resigner: fakeResigner, store
+        });
+
+        await install({ source: 'upload', reference: 'homebrew.wgt', upload: fixture.wgtWithIcon() });
+
+        const uninstallIndex = commands.findIndex((c) => c.includes('vd_appuninstall GJBBYNLkgP'));
+        const installIndex = commands.findIndex((c) => c.includes('vd_appinstall GJBBYNLkgP'));
+
+        check('the old copy is uninstalled before the new one is installed',
+            uninstallIndex !== -1 && installIndex !== -1 && uninstallIndex < installIndex,
+            JSON.stringify(commands));
+    }
+
     {
         const store = createStore({ installing: true, catalog: [] });
         const { install } = createInstaller({
