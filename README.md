@@ -99,6 +99,12 @@ version. Whether anything newer was *released* is a GitHub request per app, so
 it waits to be asked: **check** on a row, or **check all** under the list.
 Tizen Homebrew is in its own catalog, so it updates itself the same way.
 
+**Companions.** [stremio/](stremio/) is Stremio's desktop streaming server
+rebuilt as a Tizen service: the TV streams its own torrents with no computer
+on the network. It ships in this repo, installs through the **Upload** tab,
+and Tizen Homebrew keeps it alive — see [stremio/README.md](stremio/README.md)
+for the five-minute setup.
+
 ---
 
 ## From an agent

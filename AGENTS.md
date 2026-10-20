@@ -111,3 +111,25 @@ All of it honours `TV_IP` (default in the toolbox is the TV's address) and reads
   if you can; a reinstall is cheap, a lost state is not.
 - **The PIN rotates on every app open.** Cache it for the session, refresh it
   on 403, and never write it anywhere `token.txt` would not be.
+
+## The Stremio companion (`S6K2WQ8MnP.StremioServer`)
+
+This repo also ships the TV's Stremio streaming server ([stremio/](stremio/)).
+Treat these as load-bearing, not guesses:
+
+- **The server listens on `11470`.** It is a separate app from Tizen Homebrew
+  and from the Stremio *client* (`newslO9NqF`). The client points at it by the
+  TV's **LAN IP** (`<tv-ip>:11470`), never `127.0.0.1`.
+- **`127.0.0.1` is per-app on Tizen.** Every app is in its own network sandbox,
+  so the client's loopback is not the server's loopback. If someone reports
+  "the server is up but Stremio can't connect," the address is almost always
+  `127.0.0.1`. Confirm from the TV's side, not the Mac's.
+- **It revives itself, but only when homebrew starts.** The homebrew service
+  probes `11470` at 3s and 60s on every start and cross-launches the app if
+  the port is silent (search its `/logs` for `stremio`). A cold boot that
+  leaves homebrew down leaves the server down too — `restart.js` brings both
+  back. Do not `:8091/install`-replace homebrew to fix a dead server; that's a
+  sledgehammer that also drops the connection mid-swap.
+- **It has been wiped by TV self-updates.** If `GET /packages` no longer lists
+  `S6K2WQ8MnP`, reinstall from `stremio/release/stremio-server.wgt`. The
+  client app surviving does not mean the server did.
