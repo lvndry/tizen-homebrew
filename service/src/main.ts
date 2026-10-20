@@ -117,12 +117,11 @@ const reviveCompanions = () => {
         }
     };
 
-    const schedule = (revive: (label: string) => Promise<void>) => {
-        const check = (delay: number, label: string) => {
+    const schedule = (revive: (label: string) => Promise<void>,
+        windows: ReadonlyArray<readonly [number, string]> = [[3000, 'first check'], [60_000, 'second check']]) => {
+        for (const [delay, label] of windows) {
             setTimeout(async () => { await revive(label); }, delay);
-        };
-        check(3000, 'first check');
-        check(60_000, 'second check');
+        }
     };
 
     schedule(async (label) => {
@@ -131,9 +130,12 @@ const reviveCompanions = () => {
     });
 
     if (isBootStart()) {
-        schedule(async (label) => {
-            launch('BonsoirTV1.Bonsoir', 'bonsoir', label);
-        });
+        // The early checks put the dashboard on the glass; the late ones win
+        // the race — the system launcher opens ~30s into the boot and steals
+        // focus from whatever it finds in front, so relaunching the running
+        // app brings it back on top.
+        schedule((label) => Promise.resolve(launch('BonsoirTV1.Bonsoir', 'bonsoir', label)),
+            [[3000, 'early check'], [60_000, 'second check'], [120_000, 'post-launcher relaunch'], [240_000, 'late relaunch']]);
     }
 };
 
