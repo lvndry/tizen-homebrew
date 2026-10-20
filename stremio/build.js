@@ -3,7 +3,7 @@
 // Builds and signs release/stremio-server.wgt.
 //
 // The package is four flat files (config.xml, icon.png, index.html, main.js
-// and src/server.js staged next to them) — there is nothing to compile, the
+// and the vendored desktop bundle staged as src/server.js) — there is nothing
 // desktop bundle is already the artifact. Signing uses the same certificate
 // pair as the homebrew package, which already covers this television.
 
@@ -34,7 +34,7 @@ function main() {
     mkdirSync(join(STAGE, 'src'), { recursive: true });
 
     INCLUDE.forEach((f) => cpSync(join(__dirname, f), join(STAGE, f)));
-    cpSync(join(__dirname, 'src', 'server.js'), join(STAGE, 'src', 'server.js'));
+    cpSync(join(__dirname, 'server.js'), join(STAGE, 'src', 'server.js'));
 
     mkdirSync(join(ROOT, 'release'), { recursive: true });
     rmSync(OUT, { force: true });
