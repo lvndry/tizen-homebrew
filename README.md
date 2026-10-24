@@ -1,32 +1,62 @@
-# Tizen Homebrew
+# tizen-tap
 
-Install apps on a Samsung TV from your phone — or from an agent.
+A back door into your Samsung TV: install apps, watch it happen on screen,
+and drive the whole thing from your phone, a script, or an LLM agent.
+
+<sub>Tested on a Samsung CU7105 (Tizen 6.5, 2023). Most of it applies to any
+modern Samsung smart TV with Developer Mode.</sub>
 
 <img src="icon.png" width="96" align="right">
 
-Developer Mode normally points a TV at a computer that has to stay on the
-network. This points it at `127.0.0.1` — the TV becomes its own developer
-machine — and the whole surface is plain JSON over the network, so anything
-that can `curl` can drive it. Set it up once; no computer after that.
+---
 
-- Install from a catalog, a GitHub release, a URL, or a USB stick
-- Re-signs every package for your TV, so builds signed by other people install
-- A dmesg-style log on the TV screen
-- An sdb shell, from the phone
-- An agent-friendly contract: [AGENTS.md](AGENTS.md) is the complete
-  operational reference for an LLM (or a script) driving the TV — install,
-  wake, restart, logs, remote keys
+## What it can do
 
-**Discord**: https://discord.gg/WjxVnrsV4A
+**Install anything.** One press, from the TV screen or the phone:
 
-<table>
-<tr>
-<td><img src="docs/screenshots/tv.png" width="800" alt="The television screen: the address to open, the pairing code, the log, and the buttons"></td>
-</tr>
-<tr>
-<td align="center"><sub>The address, the code, and whatever the service is doing. The yellow ring is where the remote is.</sub></td>
-</tr>
-</table>
+- **Catalog** — a curated app list, published as a file, updated by commit
+- **GitHub** — `owner/repo`, takes the newest release's `.wgt`
+- **Upload** — a package straight from your phone
+- **USB** — a stick plugged into the TV
+- **URL** — any direct https link
+
+Every package is **re-signed for your TV** in about 150ms, so builds made on
+someone else's set still install on yours.
+
+**No computer needed afterwards.** Developer Mode normally points the TV at a
+machine that has to stay online. This points it at `127.0.0.1` — the TV is its
+own developer machine — and exposes the whole surface as plain JSON over your
+LAN. Set it up once in ten minutes; the TV runs itself after that.
+
+**A screen that tells you what's happening.** A dmesg-style log on the TV
+itself: what it installed, when, how long it took, what failed and why. Plus
+the current pairing PIN and a restart button.
+
+**Drive it from a phone or a script.** The service is a small HTTP API gated
+by a 6-digit PIN:
+
+```
+GET  /packages      what is installed
+GET  /logs?since=N  the on-screen log, as JSON
+GET  /pin           the current PIN (loopback only)
+POST /install       a .wgt or GitHub ref → re-signed and installed
+POST /restart       relaunches the service
+POST /shutdown      the PIN-checked exit
+```
+
+**Drive it from an agent.** [AGENTS.md](AGENTS.md) is the complete operational
+contract for an LLM (or any script) driving the TV: every endpoint, every
+command, and the honest failure modes — what `:8091 = 000` means, why silence
+is often a working result, why you must never power the TV off.
+
+**Keep companions alive.** Services it installs can be watched and relaunched.
+The repo ships [stremio/](stremio/) — Stremio's streaming server rebuilt as a
+Tizen service, so the TV streams its own torrents with no computer on the
+network — and tizen-tap keeps it running.
+
+**Root.** With [the companion setup](docs/sdbd-and-root.md), the same channel
+reaches the TV's sdb daemon and runs commands as root — that's how the Host PC
+IP was moved to `127.0.0.1` permanently. See the doc for the map.
 
 ---
 
@@ -34,37 +64,37 @@ that can `curl` can drive it. Set it up once; no computer after that.
 
 One command. It carries its own runtime, so nothing has to be installed first.
 
-### Linux/MacOS
+### Linux / macOS
 ```sh
-curl -fsSL https://lvndry.github.io/tizen-homebrew/install.sh | sh
+curl -fsSL https://lvndry.github.io/tizen-tap/install.sh | sh
 ```
 
 ### Windows
 ```powershell
-irm https://lvndry.github.io/tizen-homebrew/install.ps1 | iex
+irm https://lvndry.github.io/tizen-tap/install.ps1 | iex
 ```
 
-It tells you what to switch on, finds the TV, mints a Samsung certificate
-against your own account, installs the app, and tells you what to switch back.
-Ten minutes, most of it spent restarting the TV.
+It finds the TV, mints a Samsung certificate against your own account,
+installs the app, and tells you what to switch. Ten minutes, most of it spent
+restarting the TV.
 
-Two steps are yours: sdbd runs a command allowlist, so no software can do them.
-Both are **Apps** → **12345** (or hold Enter) → **Settings**, and both need a
-restart, since that value is only read at startup.
+Two steps are yours — sdbd runs a command allowlist, so no software can do
+them. Both are **Apps** → **12345** (or hold Enter) → **Settings**, and both
+need a restart, since the value is only read at startup:
 
 | When | Set **Host PC IP** to |
 | --- | --- |
 | Before installing | this computer's address — the installer prints it |
 | After installing | `127.0.0.1` |
 
-The second makes the rest work: the TV then installs its own apps, and no other
-machine can reach its sdb daemon.
+The second makes the rest work: the TV then installs its own apps, and no
+other machine can reach its sdb daemon.
 
 **From a checkout**, with Node 20+:
 
 ```sh
-git clone https://github.com/lvndry/tizen-homebrew.git
-cd tizen-homebrew
+git clone https://github.com/lvndry/tizen-tap.git
+cd tizen-tap
 npm install
 npm run full-bootstrap          # or: -- <tv-ip>, if you know it
 ```
@@ -85,44 +115,17 @@ npm run full-bootstrap          # or: -- <tv-ip>, if you know it
 The PIN changes every time the app opens, and the TV screen shows the current
 one. Your phone keeps the last one that worked until the TV restarts.
 
-<table>
-<tr>
-<td><img src="docs/screenshots/phone.png" width="600" alt="The phone page asking for the pairing code"></td>
-</tr>
-<tr>
-<td align="center"><sub>The phone, before it has been told the six digits</sub></td>
-</tr>
-</table>
-
 **Updates.** Every **Apps** row says whether it is installed and at which
-version. Whether anything newer was *released* is a GitHub request per app, so
-it waits to be asked: **check** on a row, or **check all** under the list.
-Tizen Homebrew is in its own catalog, so it updates itself the same way.
+version; **check** asks GitHub whether anything newer was released. tizen-tap
+is in its own catalog, so it updates itself the same way — including
+in-place self-updates that don't kill the service doing the installing.
 
-**Companions.** [stremio/](stremio/) is Stremio's desktop streaming server
-rebuilt as a Tizen service: the TV streams its own torrents with no computer
-on the network. It ships in this repo, installs through the **Upload** tab,
-and Tizen Homebrew keeps it alive — see [stremio/README.md](stremio/README.md)
-for the five-minute setup.
+**Companions.** [stremio/](stremio/) is the TV's own streaming server — five
+minute setup in [stremio/README.md](stremio/README.md).
 
----
-
-## From an agent
-
-The service is a small HTTP API and the TV a set of keys, so an LLM with
-shell access can do everything a human does — and [AGENTS.md](AGENTS.md) is
-written exactly for that: the endpoints, the toolbox commands, and the honest
-failure modes (what `:8091 = 000` means, why silence from the TV is often a
-working result, the agent's contract: never power the TV off).
-
-```sh
-curl -H "x-homebrew-pin: 000000" http://<tv>:8091/packages   # what's on it
-node remote.js home ok up down                              # move the cursor
-curl -X POST --data-binary @app.wgt http://<tv>:8091/install   # put something on
-```
-
-The companion [samsung-tv-toolbox](https://github.com/lvndry/samsung-tv-toolbox)
-is the plain-Node side: pairing, remote keys, Wake-on-LAN, service restart.
+The companion [tizen-toolbox](https://github.com/lvndry/tizen-toolbox) is the
+plain-Node side, no install needed: pairing, remote keys over the network,
+Wake-on-LAN, Developer Mode setup, sdb from your machine.
 
 ---
 
@@ -134,34 +137,30 @@ distributor certificate:
     URI:URN:tizen:deviceid=CPCLIM2YRW7DO
 
 From Tizen 7 the TV enforces it, so a `.wgt` installs on its builder's set and
-nowhere else. Prebuilt widgets therefore cannot be handed around, and the TV is
-given its own pair during setup: a set holding one re-signs everything it
-installs, in about 150ms.
+nowhere else. The TV is given its own certificate pair during setup, and a set
+holding one re-signs everything it installs, in about 150ms.
 
-**Always on.** `config.xml` declares the service `on-boot` and `auto-restart`,
-so it comes up with the television — switch the set on, load the address on a
-phone, install. The app remains for the log, the pairing code and a restart
-button, and closing it leaves the service running. `POST /restart` self-heals
-in a few seconds: on this firmware the platform only relaunches a service that
-died *abnormally*, so a restart dies by throwing, and a clean exit stays down.
+**Always on.** `config.xml` declares the service `on-boot` and
+`auto-restart`, so it comes up with the television. The app remains for the
+log, the PIN and a restart button; closing it leaves the service running.
+`POST /restart` self-heals in seconds: on this firmware the platform only
+relaunches a service that died *abnormally*, so a restart dies by throwing,
+and a clean exit stays down.
 
-**Security.** The install endpoint is deliberately open to the network, gated
-by the 6-digit PIN: minted on first run, readable only over loopback so a
-person has to relay it. Five wrong guesses locks pairing for five minutes. The
-sdb relay is off by default, takes a second opt-in to survive reboots, and
-refuses commands that would disable it or uninstall the app.
+**Security.** The install endpoint is open to the network by design, gated by
+the 6-digit PIN: minted on first run, readable only over loopback so a person
+has to relay it. Five wrong guesses locks pairing for five minutes. The sdb
+relay is off by default, takes a second opt-in to survive reboots, and refuses
+commands that would disable it or uninstall the app.
 
 **The log.** sdbd's allowlist excludes every log tool, so the app carries its
-own. Press **show logs** on the TV; up/down a line, left/right a page, RED for
+own. **show logs** on the TV; up/down a line, left/right a page, RED for
 newest. `GET /logs?since=<seq>` returns the same records as JSON.
 
 ```
 [    0.906] sdb: loopback 127.0.0.1:26101 answered — this TV can install its own apps
 [   59.220] pkg: installed Tube 0.1.0 in 7.22s
 ```
-
-**The catalog.** The app list is [`catalog/`](catalog/), published to GitHub
-Pages. Adding an app is a commit there — no rebuild, nothing to reinstall.
 
 ---
 
@@ -173,17 +172,19 @@ npm run dev:service  # the service off-TV, on :8091
 npm test             # lint, typecheck, protocol, PIN gate, install pipeline
 ```
 
-`npm run dev` serves the TV at `/tv.html`, the phone at `/index.html`, both at
-`/preview.html`. With no TV around `ui/dev/service.js` answers, real protocol
-over a real WebSocket; `HOMEBREW_TV=<tv-ip> npm run dev` points it at hardware.
+`npm run dev` serves the TV at `/tv.html` and the phone at `/index.html`, both
+at `/preview.html`. With no TV around, `ui/dev/service.js` answers with the
+real protocol over a real WebSocket; `HOMEBREW_TV=<tv-ip> npm run dev` points
+it at hardware.
 
 The installer is a separate program in [`installer/`](installer/): Bun and
-OpenTUI, compiled to one binary per platform. It calls `tools/` and `service/`
-directly rather than reimplementing them, so the sdb client and the re-signer
-have one implementation each.
+OpenTUI, compiled to one binary per platform. It calls `tools/` and
+`service/` directly, so the sdb client and the re-signer have one
+implementation each.
 
 ---
 
-Licensed GPL-3.0-only. Built on the work in the credits screen — the Homebrew
-Channel, TizenBrew, TizenTube, and the people who worked out what a Samsung TV
-will and will not allow.
+Started from [SushyDev/tizen-homebrew](https://github.com/SushyDev/tizen-homebrew)
+and grown into something with an actual spine. Licensed GPL-3.0-only, on the
+work in the credits screen — the Homebrew Channel, TizenBrew, TizenTube, and
+the people who worked out what a Samsung TV will and will not allow.
