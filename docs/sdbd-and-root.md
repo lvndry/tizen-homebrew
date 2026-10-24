@@ -105,6 +105,17 @@ shim that speaks the subset the tool uses:
 Wire it up with `SDB=~/tools/sdb/sdb`. Building the payloads needs a
 .NET SDK: `make common-payload` in the tool repo.
 
+## Current state (verified 2024-10)
+
+Host PC IP is set to `127.0.0.1` in the buxton2 DB via a root
+`archive-root` run — the dialog is not needed anymore, and the value
+survives reboots (it is a DB entry, not a runtime setting). Verified
+after the change: `push.js` self-update succeeds TV-side (its probe
+connects over loopback), and Mac-origin sdb gets `ECONNRESET` on the
+handshake.
+
+
+
 ## Practical state machine for deploys
 
 | Host PC IP | `tools/push.js` (TV-side) | Mac sdb (`bootstrap.js`, archive-root) |
