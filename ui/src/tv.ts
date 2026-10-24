@@ -75,7 +75,9 @@ const say = (text, level = 'info') => append([{ ...stamp(), facility: 'ui', leve
 
 window.onerror = (message, _source, line) => say(`page error: ${message} (line ${line})`, 'err');
 
+// The television is silent until someone turns the theme on; a person's own choice overrides it.
 const channel = theme({
+    defaultOn: false,
     onState: ({ playing }) => store.update({ themeOn: playing })
 });
 
