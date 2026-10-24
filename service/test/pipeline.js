@@ -3,6 +3,8 @@
 const { createInstaller } = require('../src/install/pipeline.ts');
 const { createStore } = require('../src/state.ts');
 const fixture = require('./fixture.js');
+const { readFileSync } = require('fs');
+const { join } = require('path');
 
 const results = [];
 const check = (name, ok, detail) => {
@@ -91,8 +93,8 @@ const run = async () => {
 
 
     {
-        // A self-update that died mid-install left two copies of the same package on the set,
-        // so the installer must clear the old copy before it installs the new one.
+        // A copy of another package that survived an earlier failed install has to
+        // go before the new one lands: two copies start the service twice.
         const commands = [];
         const store = createStore({ installing: false, catalog: [] });
 
@@ -108,13 +110,48 @@ const run = async () => {
             resigner: fakeResigner, store
         });
 
+        // Identity comes from the manifest inside the archive, so the other
+        // package is a real variant of the repo's config with a different id.
+        const otherConfig = Buffer.from(readFileSync(join(__dirname, '..', '..', 'config.xml')).toString('utf8').replace(/GJBBYNLkgP/g, 'ACME000001'));
+        const otherUpload = fixture.zipAll([
+            { name: 'config.xml', contents: otherConfig, deflate: true },
+            { name: 'icon.png', contents: fixture.PIXEL }
+        ]);
+
+        const outcome = await install({ source: 'upload', reference: 'other.wgt', upload: otherUpload });
+
+        const uninstallIndex = commands.findIndex((c) => c.includes('vd_appuninstall ACME000001'));
+        const installIndex = commands.findIndex((c) => c.includes('vd_appinstall ACME000001'));
+
+        check('another package\'s old copy is uninstalled before the new one is installed',
+            outcome.packageId === 'ACME000001' &&
+            uninstallIndex !== -1 && installIndex !== -1 && uninstallIndex < installIndex,
+            JSON.stringify(commands));
+    }
+
+    {
+        // A self-update installs in place: uninstalling the running package first
+        // would kill the process doing the installing, so no vd_appuninstall at all.
+        const commands = [];
+        const store = createStore({ installing: false, catalog: [] });
+
+        const { install } = createInstaller({
+            sdb: { withSession: (_options, run) => run({
+                exec: (c) => {
+                    commands.push(c);
+                    return Promise.resolve('coreinstall spend time = 1234 ms');
+                },
+                close: () => {}
+            }) },
+            device: fakeDevice(), config: fakeConfig({ author: 'present' }),
+            resigner: fakeResigner, store
+        });
+
         await install({ source: 'upload', reference: 'homebrew.wgt', upload: fixture.wgtWithIcon() });
 
-        const uninstallIndex = commands.findIndex((c) => c.includes('vd_appuninstall GJBBYNLkgP'));
-        const installIndex = commands.findIndex((c) => c.includes('vd_appinstall GJBBYNLkgP'));
-
-        check('the old copy is uninstalled before the new one is installed',
-            uninstallIndex !== -1 && installIndex !== -1 && uninstallIndex < installIndex,
+        check('a self-update does not uninstall its own package',
+            !commands.some((c) => c.includes('vd_appuninstall')) &&
+            commands.some((c) => c.includes('vd_appinstall GJBBYNLkgP')),
             JSON.stringify(commands));
     }
 
