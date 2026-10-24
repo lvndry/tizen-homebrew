@@ -13,6 +13,10 @@ const memory = require('../obs/memory.ts');
 
 const refuse = (code, message) => Object.assign(new Error(message), { code });
 
+// The package this service runs out of. A self-update is the one install where
+// uninstalling first would remove the very process doing the installing.
+const SELF_PACKAGE_ID = 'GJBBYNLkgP';
+
 const QUIET = ['debug', 'info', 'ok', 'warn', 'err']
     .reduce((noop, level) => ({ ...noop, [level]: () => {} }), {});
 
@@ -124,20 +128,40 @@ const createInstaller = ({ sdb, device, config, resigner, store, log }) => {
         };
 
         const runInstaller = async (carried) => {
+            const { packageId } = carried.identity;
+            const isSelf = packageId === SELF_PACKAGE_ID;
+
             phase('installing', carried.identity.name || carried.identity.packageId);
 
-            // Uninstall before installing: a self-update that dies mid-install has been
-            // observed to leave the old copy beside the new one, and two copies of the
-            // same package start the same service twice. A missing id is a clean no-op,
-            // so the plain install path pays nothing for this.
-            const uninstall = `shell:0 vd_appuninstall ${carried.identity.packageId}`;
+            const logLines = (line) => sdbSays.info(line);
+
+            // A self-update installs in place: sdbd overwrites the files, and the
+            // caller then exits abnormally so auto-restart loads the new build.
+            // Uninstalling first would drop the connection — this process runs out
+            // of the package being removed, and the install never lands.
+            if (isSelf) {
+                sdbSays.info(`shell:0 vd_appinstall ${packageId} ${carried.stagedPath} (in place)`);
+
+                try {
+                    await sdb.withSession({ log: logLines },
+                        (session) => installer.run(session, carried.stagedPath, packageId));
+
+                    return carried;
+                } catch (error) {
+                    sdbSays.info(`in place refused (${error.code || 'install failed'}) — uninstalling the old copy first`);
+                }
+            }
+
+            // Two copies of the same package start the service twice, so a copy that
+            // survived an earlier failed install has to go before the new one lands.
+            const uninstall = `shell:0 vd_appuninstall ${packageId}`;
 
             sdbSays.info(uninstall);
 
-            await sdb.withSession({ log: (line) => sdbSays.info(line) }, async (session) => {
+            await sdb.withSession({ log: logLines }, async (session) => {
                 const cleared = await session.exec(uninstall, { timeout: 30000 });
                 sdbSays.info(`old copy gone: ${String(cleared).trim() || '(clean)'}`);
-                return installer.run(session, carried.stagedPath, carried.identity.packageId);
+                return installer.run(session, carried.stagedPath, packageId);
             });
             return carried;
         };
